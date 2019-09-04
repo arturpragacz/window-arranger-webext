@@ -1,0 +1,12 @@
+{
+  "requires": true,
+  "lockfileVersion": 1,
+  "dependencies": {
+    "web-ext-types": {
+      "version": "3.2.1",
+      "resolved": "https://registry.npmjs.org/web-ext-types/-/web-ext-types-3.2.1.tgz",
+      "integrity": "sha512-oQZYDU3W8X867h8Jmt3129kRVKklz70db40Y6OzoTTuzOJpF/dB2KULJUf0txVPyUUXuyzV8GmT3nVvRHoG+Ew==",
+      "dev": true
+    }
+  }
+}

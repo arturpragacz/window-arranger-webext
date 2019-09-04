@@ -1,0 +1,54 @@
+{
+	"manifest_version": 2,
+	"name": "Window Arranger",
+	"description": "Improves arrangement of windows.",
+	"author": "Artur Pragacz",
+	"homepage_url": "https://extension.pragacz.com",
+	"version": "1.0",
+
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "window_arranger@experiments.addons.mozilla.org",
+			"strict_min_version": "67.0"
+		}
+	},
+
+	"background": {
+		"page": "background.html"
+	},
+
+	"browser_action": {
+		"browser_style": true,
+		"default_title": "Tooltip for the button, displayed when the user moves their mouse over it. If the button is added to the browser's menu panel, this is also shown under the app icon.",
+		// "default_popup": "window.html",
+		"default_icon": {
+			"19": "icons/window19.png",
+			"38": "icons/window38.png"
+		}
+	},
+
+	"icons": {
+		"48": "icons/window.png",
+		"96": "icons/window@2x.png"
+	},
+
+	"experiment_apis": {
+		"windowsExtended": {
+			"schema": "experiment/schemas/windowsExtended.json",
+			"parent": {
+				"scopes": [ "addon_parent" ],
+				"paths": [ [ "windowsExt" ] ],
+				"script": "experiment/windowsExtended.js"
+			}
+		}
+	},
+
+	"permissions": [
+		"nativeMessaging",
+		"storage",
+		"sessions"
+		// "tabHide"
+		// "webNavigation",
+		// "tabs"
+	]
+}

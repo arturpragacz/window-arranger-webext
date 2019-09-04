@@ -1,0 +1,32 @@
+[
+	{
+		"namespace": "windowsExt",
+		"types": [
+      {
+        "id": "WindowNative",
+        "type": "object",
+        //"description": "",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "Native handle to the window"
+          }
+				}
+			}
+		],
+		"functions": [
+			{
+				"name": "getNative",
+				"type": "function",
+				"async": true,
+				"parameters": [
+					{
+						"name": "windowId",
+						"type": "integer",
+            "minimum": -2
+					}
+				]
+			}
+		]
+	}
+]
