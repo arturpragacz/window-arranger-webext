@@ -13,30 +13,49 @@ class Possition {
 	}
 }
 
+type EscribedArrangement = Array<{position: Possition}>; //[customIdName: string]: any, 
+
 class Arrangement extends Map<number, Possition> {
+	async toEscribed(customIdName: string, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
+		let escribedArrangement = [] as EscribedArrangement;
 
-}
-
-class ObserveInfo {
-	public deleteFromObserved: (number | string)[] = [];
-	public addToObserved: (number | string)[] = [];
-
-	add(ids) {
-		if (!Array.isArray(ids)) {
-			ids = [ids];
+		for (let posId of this) {
+			let id = posId[0];
+			let customId: string = await customIdMaker(id).catch(() => undefined);
+			if (customId != undefined) {
+				escribedArrangement.push({ [customIdName]: customId, position: posId[1] });
+			}
 		}
-		this.addToObserved.push(...ids);
-		return this;
+
+		return escribedArrangement;
 	}
 
-	delete(ids) {
-		if (!Array.isArray(ids)) {
-			ids = [ids];
+	static parseEscribed(escribedArrangement: EscribedArrangement, customIdName: string,
+	commonIdMaker: CommonIdMaker): Arrangement {
+
+		let arrangement = new Arrangement();
+
+		for (let posWindow of escribedArrangement) {
+			Object.setPrototypeOf(posWindow.position, Possition.prototype);
+			const customId: string = posWindow[customIdName];
+			let commonId: number = commonIdMaker(customId);
+			if (commonId != undefined) {
+				arrangement.set(commonId, posWindow.position);
+			}
+			else {
+				if (arrangement['customIdsFailedConversion'] == undefined)
+					arrangement['customIdsFailedConversion'] = new Map();
+				arrangement['customIdsFailedConversion'].set(customId, posWindow.position);
+			}
 		}
-		this.deleteFromObserved.push(...ids);
-		return this;
+
+		return arrangement;
 	}
 }
+
+// class ArrangementWithFailedConversion extends Arrangement {
+// 	customIdsFailedConversion: Map<string, Position>;
+// }
 
 declare namespace browser.windowsExt {
 	function getNative(id: number): Promise<{handle: string}>;
@@ -48,8 +67,7 @@ declare namespace browser.windowsExt {
 	let port: browser.runtime.Port;
 	let runningConnection = false;
 	let messageIdCounter = 1;
-	let observed = new Map<number, String>(); // from ids to handles
-	let observedInverse = new WeakMap<String, number>(); // from handles to ids
+	let observer: Observer;
 
 	class Message {
 		source: string;
@@ -68,32 +86,11 @@ declare namespace browser.windowsExt {
 		status: string;
 	}
 
-	function parseEscribedArrangement(escribedArrangement: {handle: string, position: Possition}[]): Arrangement {
-		let arrangement: Arrangement;
-
-		for (let posWindow of escribedArrangement) {
-			Object.setPrototypeOf(posWindow.position, Possition.prototype);
-			arrangement.set(observedInverse.get(posWindow.handle), posWindow.position);
-		}
-
-		return arrangement;
-	}
-
-	function toEscribedArrangement(arrangement: Arrangement): {handle: string, position: Possition}[] {
-		let escribedArrangement: {handle: string, position: Possition}[] = [] ;
-
-		for (let posId of arrangement) {
-			let id = posId[0];
-			let handle: string = observed.get(id).toString();
-			if (handle != undefined) {
-				escribedArrangement.push({ handle, position: posId[1] });
-			}
-		}
-
-		return escribedArrangement;
-	}
-
-	function sendMessage(type: string, value: any) {
+	async function sendMessage(type: "changeObserved", value: ObserveInfo): Promise<EscribedArrangement>;
+	async function sendMessage(type: "getArrangement", value: string | string[]): Promise<EscribedArrangement>;
+	async function sendMessage(type: "setArrangement", value: EscribedArrangement): Promise<EscribedArrangement>;
+	// async function sendMessage(type: "updateArrangement", value: any): Promise<EscribedArrangement>; // TODO: czy na pewno any? (popatrz w źródło aplikacji)
+	async function sendMessage(type: string, value: any): Promise<any> {
 		return new Promise(function (resolve, reject) {
 			let messageId = messageIdCounter++;
 			port.onMessage.addListener(function callback(response: ResponseMessage) {
@@ -109,34 +106,15 @@ declare namespace browser.windowsExt {
 	}
 
   async function changeObserved(observeInfo: ObserveInfo): Promise<Arrangement> {
-		observeInfo.deleteFromObserved.forEach(function(id: number, index, array) {
-			let handle: string = observed.get(id).toString();
-			if (handle == undefined) {
-				array[index] = undefined;
-			}
-			else {
-				array[index] = handle;
-				observed.delete(id);
-			}
-		});
-		observeInfo.deleteFromObserved = observeInfo.deleteFromObserved.filter(x => x != undefined);
+		let newObserveInfo: ObserveInfo = await observer.changeObserved(observeInfo, undefined,
+			async id => (await browser.windowsExt.getNative(id)).handle);
+			// async id => {let { handle } = await browser.windowsExt.getNative(id); return handle});
+		
+		newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x != undefined);
+		newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x != undefined);
 
-		observeInfo.addToObserved.forEach(function(id: number, index, array) {
-			browser.windowsExt.getNative(id)
-			.then(({ handle }) => {
-				array[index] = handle;
-				let boxedHandle = new String(handle);
-				observed.set(id, boxedHandle);
-				observedInverse.set(boxedHandle, id);
-			})
-			.catch(e => {
-				array[index] = undefined;
-			})
-		});
-		observeInfo.addToObserved = observeInfo.addToObserved.filter(x => x != undefined);
-
-		return parseEscribedArrangement(await sendMessage("changeObserved", observeInfo) as
-			{handle: string, position: Possition}[]);
+		return Arrangement.parseEscribed(await sendMessage("changeObserved", newObserveInfo) as EscribedArrangement,
+			"handle", (customId: string) => observer.getCommonId(customId));
 	}
 
   async function getArrangement(idArray: number[]): Promise<Arrangement> {
@@ -149,7 +127,8 @@ declare namespace browser.windowsExt {
 		if (filterHandles) {
 			let handleArray: string[] = [];
 			for (let id of idArray) {
-				let handle: string = observed.get(id).toString();
+				// TODO: szukanie nie tylko w już observed
+				let handle: string = observer.getCustomId(id);
 				if (handle != undefined) {
 					handleArray.push(handle);
 				}
@@ -160,13 +139,22 @@ declare namespace browser.windowsExt {
 			value = "all";
 		}
 
-		return parseEscribedArrangement(await sendMessage("getArrangement", value) as
-			{handle: string, position: Possition}[]);
+		// TODO: szukanie nie tylko w już observed
+		return Arrangement.parseEscribed(await sendMessage("getArrangement", value), "handle", observer.getCommonId);
 	}
 
-	function setArrangement(arrangement) {
-		return sendMessage("setArrangement", toEscribedArrangement(arrangement));
+	async function setArrangement(arrangement: Arrangement): Promise<Arrangement> {
+		// TODO: szukanie nie tylko w już observed
+		const escribedArrangement: EscribedArrangement =
+			await arrangement.toEscribed("handle", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId
+		const responseEscribedArrangement: EscribedArrangement = await sendMessage("setArrangement", escribedArrangement);
+		// TODO: szukanie nie tylko w już observed
+		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observer.getCommonId);
 	}
+
+	// TODO:
+	// async function updateArrangement(arrangement: Arrangement): Promise<Arrangement> {
+	// }
 
 	let onArrangementChanged = new EventTarget();
 	function handleMessageFromApp(message: ResponseMessage) {
@@ -187,6 +175,7 @@ declare namespace browser.windowsExt {
 			});
 			runningConnection = true;
 			messageIdCounter = 1;
+			observer = new Observer();
 		}
 		else
 			console.log("Connection already running!");
