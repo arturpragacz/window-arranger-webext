@@ -66,7 +66,7 @@ declare namespace browser.windowsExt {
 	let appName = "window_arranger";
 	let port: browser.runtime.Port;
 	let runningConnection = false;
-	let messageIdCounter = 1;
+	let messageIdCounter: number;
 	let observer: Observer;
 
 	class Message {
