@@ -31,26 +31,27 @@ class ArrangementStore {
 	}
 }
 
-(function(w) {
+function mergeArrangementStores(arrSt1: ArrangementStore, arrSt2: ArrangementStore): ArrangementStore {
+	return new ArrangementStore(mergeArrangements(arrSt1.arrangement, arrSt2.arrangement), arrSt2.date);
+}
 
+interface Storager {
+	changeObserved: (observeInfo: ObserveInfo) => Promise<void>;
+	saveArrangementStore: (name: string, arrangementStore: ArrangementStore) => Promise<void>;
+	loadArrangementStore: (name: string) => Promise<ArrangementStore>;
+	copyArrangementStore: (oldName: string, newName: string) => Promise<void>;
+	start: () => Promise<void>;
+	stop: () => void;
+}
+
+var storager = {} as Storager;
+
+// TODO: przerobić na klasę?
+(function(storager) {
+
+	let running = false;
 	let windowCounter: number;
-	let observer = new Observer();
-
-	async function init(): Promise<void> {
-		await Promise.all([
-			(async() => {
-				let windowCounter = (await browser.storage.local.get("windowCounter")).windowCounter;
-				if (windowCounter === undefined) {
-					windowCounter = 1;
-					await browser.storage.local.set({windowCounter});
-				}
-			})(),
-			
-			(async() => {
-				let orderFromMemory; //TODO
-			})()
-		])
-	}
+	let observer: Observer;
 
 	function getNextUid(): {uid: string, save: Promise<void>} {
 		let uid = (windowCounter++).toString();
@@ -60,7 +61,7 @@ class ArrangementStore {
 
 	async function getWindowUid(id: number): Promise<string> {
 		let uid = await browser.sessions.getWindowValue(id, "uid") as string;
-		if (uid == undefined) {
+		if (uid === undefined) {
 			let save: Promise<void>;
 			({uid, save} = getNextUid());
 			await Promise.all([
@@ -75,33 +76,93 @@ class ArrangementStore {
 		let newObserveInfo: ObserveInfo = await observer.changeObserved(observeInfo, undefined, getWindowUid);
 	}
 	
-	async function saveArrangementStore(arrangementStore: ArrangementStore, name: string) {
+	async function saveArrangementStore(name: string, arrangementStore: ArrangementStore): Promise<void> {
+		name = 'as' + name;
 		// TODO: szukanie nie tylko w już observed
 		const escribedArrangementStore =
-			await arrangementStore.toEscribed("uid", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId
+			await arrangementStore.toEscribed("uid", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
 			                                      // async (id: number) => getWindowUid(id));
 		const escribedArrangementStoreJSON = JSON.stringify(escribedArrangementStore);
-		await browser.storage.local.set({name: escribedArrangementStoreJSON});
+		await browser.storage.local.set({ [name]: escribedArrangementStoreJSON });
 	}
 
 	async function loadArrangementStore(name: string): Promise<ArrangementStore> {
-		const escribedArrangementStoreJSON = (await browser.storage.local.get(name)).name as string;
-		if (escribedArrangementStoreJSON == undefined) {
+		name = 'as' + name;
+
+		const gettingItem = await browser.storage.local.get(name);
+		if (!gettingItem.hasOwnProperty(name))
+			throw "No such Arrangement Store!";
+
+		const escribedArrangementStoreJSON = gettingItem[name] as string;
+		if (escribedArrangementStoreJSON === undefined) {
 			// throw 'No Arrangement Store!';
 			return undefined;
 		}
 		else {
 			const escribedArrangementStore = JSON.parse(escribedArrangementStoreJSON) as EscribedArrangementStore;
 			// TODO: szukanie nie tylko w już observed???
-			return ArrangementStore.parseEscribed(escribedArrangementStore, "uid", observer.getCommonId);
+			return ArrangementStore.parseEscribed(escribedArrangementStore, "uid", observer.getCommonId.bind(observer));
 		}
 	}
 
-	w['storage'] = {
-		init,
-		changeObserved,
-		saveArrangementStore,
-		loadArrangementStore,
+	async function copyArrangementStore(source: string, destination: string): Promise<void> {
+		source = 'as' + source;
+		destination = 'as' + destination;
+
+		const gettingItem = await browser.storage.local.get(source);
+		if (!gettingItem.hasOwnProperty(source))
+			throw "No such Arrangement Store!";
+
+		const escribedArrangementStoreJSON = gettingItem[source] as string;
+		await browser.storage.local.set({ [destination]: escribedArrangementStoreJSON });
 	}
-})(window);
+
+	// async function saveArrangementStorePrefix(arrangementStore: ArrangementStore): Promise<void> {
+	// 	// TODO: lepsza wersja zoptymalizowana (wszystkie properties w osobnych polach)
+	// 	await saveArrangementStore(currentArrangementStore, "$current");
+	// }
+
+	// async function loadArrangementStorePrefix(name: string): Promise<ArrangementStore> {
+	// 	// TODO: lepsza wersja zoptymalizowana (wszystkie properties w osobnych polach)
+	// 	return loadArrangementStore("$current");
+	// }
+
+	async function start(): Promise<void> {
+		if (!running) {
+			await Promise.all([
+				(async() => {
+					windowCounter = (await browser.storage.local.get("windowCounter")).windowCounter as number;
+					if (windowCounter === undefined) {
+						windowCounter = 1;
+						await browser.storage.local.set({ windowCounter });
+					}
+				})(),
+				
+				(async() => {
+					let orderFromMemory; // chyba niepotrzebne
+				})()
+			]);
+			running = true;
+			observer = new Observer();
+		}
+		else
+			console.log("Storager already running!");
+	}
+
+	function stop() {
+		if (running) {
+			running = false;
+		}
+		else
+			console.log("No running Storager!");
+	}
+
+	storager.changeObserved = changeObserved;
+	storager.saveArrangementStore = saveArrangementStore;
+	storager.loadArrangementStore = loadArrangementStore;
+	storager.copyArrangementStore = copyArrangementStore;
+	storager.start = start;
+	storager.stop = stop;
+
+})(storager);
 

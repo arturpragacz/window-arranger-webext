@@ -3,13 +3,13 @@ class ObserveInfo {
 	public addToObserved: (number | string)[] = [];
 
 	constructor(oi?: ObserveInfo) {
-		if (oi != undefined) {
+		if (oi !== undefined) {
 			this.deleteFromObserved = Array.from(oi.deleteFromObserved);
 			this.addToObserved = Array.from(oi.addToObserved);
 		}
 	}
 
-	add(ids) {
+	add(ids: Array<number | string> | number | string) {
 		if (!Array.isArray(ids)) {
 			ids = [ids];
 		}
@@ -17,7 +17,7 @@ class ObserveInfo {
 		return this;
 	}
 
-	delete(ids) {
+	delete(ids: Array<number | string> | number | string) {
 		if (!Array.isArray(ids)) {
 			ids = [ids];
 		}
@@ -51,15 +51,19 @@ class Observer {
 	private observedInverse = new Map<string, number>(); // from customIds to ids
 
 	async changeObserved(observeInfo: ObserveInfo,
-	customIdMakerDel: CustomIdMaker = this.asyncGetCustomId,
-	customIdMakerAdd: CustomIdMaker = this.asyncGetCustomId,
-	commonIdMaker: CommonIdMaker = this.getCommonId)
+	customIdMakerDel: CustomIdMaker = this.asyncGetCustomId, //.bind(this),
+	customIdMakerAdd: CustomIdMaker = this.asyncGetCustomId, //.bind(this),
+	commonIdMaker: CommonIdMaker = this.getCommonId) //.bind(this))
 	: Promise<ObserveInfo> {
 
+		customIdMakerDel = customIdMakerDel.bind(this);
+		customIdMakerAdd = customIdMakerAdd.bind(this);
+		commonIdMaker = commonIdMaker.bind(this);
+
 		let newObserveInfo = new ObserveInfo(observeInfo);
-		newObserveInfo.deleteFromObserved.asyncForEach(async (commonId: number, index, array) => {
+		await newObserveInfo.deleteFromObserved.asyncForEach(async (commonId: number, index, array) => {
 			let customId: string = await customIdMakerDel(commonId).catch(() => undefined); // TODO: why would you ever use a custom one?
-			if (customId == undefined) {
+			if (customId === undefined) {
 				array[index] = undefined;
 			}
 			else {
@@ -68,11 +72,11 @@ class Observer {
 				this.observedInverse.delete(customId);
 			}
 		});
-		// newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x != undefined);
+		// newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
 
-		newObserveInfo.addToObserved.asyncForEach(async (commonId: number, index, array) => {
+		await newObserveInfo.addToObserved.asyncForEach(async (commonId: number, index, array) => {
 			let customId: string = await customIdMakerAdd(commonId).catch(() => undefined);
-			if (customId == undefined) {
+			if (customId === undefined) {
 				array[index] = undefined;
 			}
 			else {
@@ -81,7 +85,7 @@ class Observer {
 				this.observedInverse.set(customId, commonId);
 			}
 		});
-		// newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x != undefined);
+		// newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
 
 		return newObserveInfo;
 	}

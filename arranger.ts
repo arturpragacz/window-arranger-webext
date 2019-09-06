@@ -13,7 +13,7 @@ class Possition {
 	}
 }
 
-type EscribedArrangement = Array<{position: Possition}>; //[customIdName: string]: any, 
+type EscribedArrangement = Array<{position: Possition}>; //[customIdName: string]: string, 
 
 class Arrangement extends Map<number, Possition> {
 	async toEscribed(customIdName: string, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
@@ -22,7 +22,7 @@ class Arrangement extends Map<number, Possition> {
 		for (let posId of this) {
 			let id = posId[0];
 			let customId: string = await customIdMaker(id).catch(() => undefined);
-			if (customId != undefined) {
+			if (customId !== undefined) {
 				escribedArrangement.push({ [customIdName]: customId, position: posId[1] });
 			}
 		}
@@ -39,11 +39,11 @@ class Arrangement extends Map<number, Possition> {
 			Object.setPrototypeOf(posWindow.position, Possition.prototype);
 			const customId: string = posWindow[customIdName];
 			let commonId: number = commonIdMaker(customId);
-			if (commonId != undefined) {
+			if (commonId !== undefined) {
 				arrangement.set(commonId, posWindow.position);
 			}
 			else {
-				if (arrangement['customIdsFailedConversion'] == undefined)
+				if (arrangement['customIdsFailedConversion'] === undefined)
 					arrangement['customIdsFailedConversion'] = new Map();
 				arrangement['customIdsFailedConversion'].set(customId, posWindow.position);
 			}
@@ -53,15 +53,32 @@ class Arrangement extends Map<number, Possition> {
 	}
 }
 
+// TODO: type-safe Arrangement With Failed Conversion
 // class ArrangementWithFailedConversion extends Arrangement {
 // 	customIdsFailedConversion: Map<string, Position>;
 // }
+
+function mergeArrangements(arr1: Arrangement, arr2: Arrangement): Arrangement {
+	return new Arrangement(function*() { yield* arr1; yield* arr2; }());
+}
 
 declare namespace browser.windowsExt {
 	function getNative(id: number): Promise<{handle: string}>;
 }
 
-(function(w) {
+interface Arranger {
+	changeObserved: (observeInfo: ObserveInfo) => Promise<Arrangement>;
+	getArrangement: (idArray: number[]) => Promise<Arrangement>;
+	setArrangement: (arrangement: Arrangement) => Promise<Arrangement>;
+	onArrangementChanged: EventTarget;
+	startConnection: () => void;
+	stopConnection: () => void;
+}
+
+var arranger = {} as Arranger;
+
+// TODO: przerobić na klasę?
+(function(arranger) {
 
 	let appName = "window_arranger";
 	let port: browser.runtime.Port;
@@ -110,11 +127,11 @@ declare namespace browser.windowsExt {
 			async id => (await browser.windowsExt.getNative(id)).handle);
 			// async id => {let { handle } = await browser.windowsExt.getNative(id); return handle});
 		
-		newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x != undefined);
-		newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x != undefined);
+		newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
+		newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
 
 		return Arrangement.parseEscribed(await sendMessage("changeObserved", newObserveInfo) as EscribedArrangement,
-			"handle", (customId: string) => observer.getCommonId(customId));
+			"handle", (customId: string) => observer.getCommonId(customId)); // to samo co: observer.getCommonId.bind(observer)
 	}
 
   async function getArrangement(idArray: number[]): Promise<Arrangement> {
@@ -129,7 +146,7 @@ declare namespace browser.windowsExt {
 			for (let id of idArray) {
 				// TODO: szukanie nie tylko w już observed
 				let handle: string = observer.getCustomId(id);
-				if (handle != undefined) {
+				if (handle !== undefined) {
 					handleArray.push(handle);
 				}
 			}
@@ -140,16 +157,16 @@ declare namespace browser.windowsExt {
 		}
 
 		// TODO: szukanie nie tylko w już observed
-		return Arrangement.parseEscribed(await sendMessage("getArrangement", value), "handle", observer.getCommonId);
+		return Arrangement.parseEscribed(await sendMessage("getArrangement", value), "handle", observer.getCommonId.bind(observer));
 	}
 
 	async function setArrangement(arrangement: Arrangement): Promise<Arrangement> {
 		// TODO: szukanie nie tylko w już observed
 		const escribedArrangement: EscribedArrangement =
-			await arrangement.toEscribed("handle", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId
+			await arrangement.toEscribed("handle", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
 		const responseEscribedArrangement: EscribedArrangement = await sendMessage("setArrangement", escribedArrangement);
 		// TODO: szukanie nie tylko w już observed
-		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observer.getCommonId);
+		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observer.getCommonId.bind(observer));
 	}
 
 	// TODO:
@@ -158,14 +175,14 @@ declare namespace browser.windowsExt {
 
 	let onArrangementChanged = new EventTarget();
 	function handleMessageFromApp(message: ResponseMessage) {
-		console.log(message);
 		if (message.status === "OK" && message.type === "arrangementChanged") {
-			let event = new CustomEvent(message.type, message.value);
+			const value = Arrangement.parseEscribed(message.value, "handle", observer.getCommonId.bind(observer));
+			const event = new CustomEvent(message.type, { detail: value });
 			onArrangementChanged.dispatchEvent(event);
 		}
 	}
 
-	function startConnection() {
+	function startConnection(): void {
 		if (!runningConnection) {
 			port = browser.runtime.connectNative(appName);
 			port.onMessage.addListener((message: ResponseMessage) => {
@@ -181,7 +198,7 @@ declare namespace browser.windowsExt {
 			console.log("Connection already running!");
 	}
 
-	function stopConnection() {
+	function stopConnection(): void {
 		if (runningConnection) {
 			port.disconnect();
 			runningConnection = false;
@@ -190,13 +207,11 @@ declare namespace browser.windowsExt {
 			console.log("No running connection!");
 	}
 
-	w['arranger'] = {
-		changeObserved,
-		getArrangement,
-		setArrangement,
-		onArrangementChanged,
-		startConnection,
-		stopConnection,//TODO usuń sendmessage
-		sendMessage,
-	}
-})(window);
+	arranger.changeObserved = changeObserved;
+	arranger.getArrangement = getArrangement;
+	arranger.setArrangement = setArrangement;
+	arranger.onArrangementChanged = onArrangementChanged;
+	arranger.startConnection = startConnection;
+	arranger.stopConnection = stopConnection;
+
+})(arranger);
