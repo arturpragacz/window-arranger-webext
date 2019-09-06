@@ -13,10 +13,10 @@ class Possition {
 	}
 }
 
-type EscribedArrangement = Array<{position: Possition}>; //[customIdName: string]: CustomIdType, 
+type EscribedArrangement = Array<{position: Possition}>; //[customIdName: CustomIdNameType]: CustomIdType, 
 
 class Arrangement extends Map<CommonIdType, Possition> {
-	async toEscribed(customIdName: CustomIdType, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
+	async toEscribed(customIdName: CustomIdNameType, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
 		let escribedArrangement = [] as EscribedArrangement;
 
 		for (let posId of this) {
@@ -30,7 +30,7 @@ class Arrangement extends Map<CommonIdType, Possition> {
 		return escribedArrangement;
 	}
 
-	static parseEscribed(escribedArrangement: EscribedArrangement, customIdName: CustomIdType,
+	static parseEscribed(escribedArrangement: EscribedArrangement, customIdName: CustomIdNameType,
 	commonIdMaker: CommonIdMaker): Arrangement {
 
 		let arrangement = new Arrangement();

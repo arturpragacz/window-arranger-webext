@@ -1,83 +1,109 @@
 
 var running = false;
-// var operational = false; // TODO
+var startstop = false;
 
-const windowCreatedTimeout = 3000;
-const backupTimeInterval = 3000;
+const windowCreatedTimeout = 40000;
+const backupTimeInterval = 300000;
 
 var current: ArrangementStore;
 var backupTimerIds: number[] = [];
 
 const delay = (t: number) => new Promise(resolve => setTimeout(resolve, t));
 
-// TODO: jakiś mechanizm synchronizacji tych callbacków poniżej? (anonimowa async?)
+var preFilterInteresting = undefined; // defaults to {populate: false, windowTypes: ['normal', 'panel', 'popup']};
+                                                                       // TODO?: add devtool windows?
+async function isInteresting(wndw: browser.windows.Window): Promise<boolean> {
+	return true;
+}
+
+
+var mutex = new Mutex();
 
 async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 	await delay(windowCreatedTimeout);
-	const changeOi = new ObserveInfo<CommonIdType>().add(wndw.id);
-	storager.changeObserved(changeOi);
-	const arrangementUpdate = await arranger.changeObserved(changeOi);
-	await updateCurrent(arrangementUpdate);
+	if (running) { await mutex.dispatch(async () => {
+		const changeOi = new ObserveInfo<CommonIdType>().add(wndw.id);
+		await Promise.all([
+			storager.changeObserved(changeOi),
+			(async() => {
+				const arrangementUpdate = await arranger.changeObserved(changeOi);
+				await updateCurrent(arrangementUpdate);
+			})(),
+		])
+	})}
 }
 
 async function windowRemoved(wndwId: number): Promise<void> {
-	const changeOi = new ObserveInfo<CommonIdType>().delete(wndwId);
-	await Promise.all([
-		storager.changeObserved(changeOi),
-		arranger.changeObserved(changeOi),
-	]);
-	current.arrangement.delete(wndwId);
-	current.date = new Date();
-	// TODO: nie zapisujemy tego? wydaje się działać...
+	if (running) { await mutex.dispatch(async () => {
+		const changeOi = new ObserveInfo<CommonIdType>().delete(wndwId);
+		await Promise.all([
+			storager.changeObserved(changeOi),
+			arranger.changeObserved(changeOi),
+		]);
+		current.arrangement.delete(wndwId);
+		current.date = new Date();
+		await saveCurrent();
+	})}
 }
 
 async function windowsRearranged(e: CustomEvent): Promise<void> {
-	const arrangementUpdate: Arrangement = e.detail;
-	return updateCurrent(arrangementUpdate);
+	if (running) { await mutex.dispatch(async () => {
+		const arrangementUpdate: Arrangement = e.detail;
+		return updateCurrent(arrangementUpdate);
+	})}
 }
 
 async function updateCurrent(update: Arrangement | ArrangementStore): Promise<void> {
+	// helper function: only used when already running and mutex locked
 	if (update instanceof Arrangement)
 		update = new ArrangementStore(update);
 	current = mergeArrangementStores(current, update);
-	await storager.saveArrangementStore("$current", current);
+	await saveCurrent();
+}
+
+async function saveCurrent(): Promise<void> {
+	// helper function: only used when already running and mutex locked
+	return storager.saveArrangementStore("$current", current);
 }
 
 
 async function mainStart(): Promise<void> {
-	if (!running) {
+	if (!running && !startstop) {
+		startstop = true;
+
+		await mutex.dispatch(async () => {
+			const allWindows = await browser.windows.getAll(preFilterInteresting);
+			const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
+			const allWindowOi = new ObserveInfo<CommonIdType>().add(allWindowIds);
+
+			await storager.start();
+			arranger.startConnection();
+
+			await storager.changeObserved(allWindowOi);
+			const arrangement = await arranger.changeObserved(allWindowOi);
+			current = new ArrangementStore(arrangement);
+
+			await storager.copyArrangementStore("$current", "$previous").catch(() => {});
+			await storager.saveArrangementStore("$current", current);
+
+			browser.windows.onCreated.addListener(windowCreated);
+			browser.windows.onRemoved.addListener(windowRemoved);
+			arranger.onArrangementChanged.addEventListener("arrangementChanged", windowsRearranged);
+
+			backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backupLong"), backupTimeInterval));
+		});
+
 		running = true;
-		// operational = false;
-
-		const allWindows = await browser.windows.getAll() // TODO?: add devtool windows?
-		const allWindowIds = allWindows.map(w => w.id);
-		const allWindowOi = new ObserveInfo<CommonIdType>().add(allWindowIds);
-
-		await storager.start();
-		arranger.startConnection();
-
-		await storager.changeObserved(allWindowOi);
-		const arrangement = await arranger.changeObserved(allWindowOi);
-		current = new ArrangementStore(arrangement);
-
-		await storager.copyArrangementStore("$current", "$previous").catch(() => {});
-		await storager.saveArrangementStore("$current", current);
-
-		browser.windows.onCreated.addListener(windowCreated);
-		browser.windows.onRemoved.addListener(windowRemoved);
-		arranger.onArrangementChanged.addEventListener("arrangementChanged", windowsRearranged);
-
-		backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backup"), backupTimeInterval));
-
-		// operational = false;
+		startstop = false;
 	}
 	else
 		console.log("Main already running!");
 }
 
 function mainStop(): void {
-	if (running) {
+	if (running && !startstop) {
 		running = false;
+		startstop = true;
 
 		storager.stop();
 		arranger.stopConnection();
@@ -90,6 +116,8 @@ function mainStop(): void {
 			window.clearInterval(timerId);
 		}
 		backupTimerIds = [];
+
+		startstop = false;
 	}
 	else
 		console.log("No running Main!");
@@ -108,28 +136,38 @@ browser.browserAction.onClicked.addListener(function () {
 
 
 async function loadFromMemory(name: string): Promise<Arrangement> {
-	let changed: Arrangement;
-	await Promise.all([
-		saveToMemory("$auxiliary"),
-		(async() => {
-			const order = await storager.loadArrangementStore(name);
-			changed = await arranger.setArrangement(order.arrangement);
-		})(),
-	])
-	await updateCurrent(changed);
-	return changed;
+	if (running) { return mutex.dispatch(async () => {
+		let changed: Arrangement;
+		await Promise.all([
+			storager.saveArrangementStore("$auxiliary", current),
+			(async() => {
+				const order = await storager.loadArrangementStore(name);
+				changed = await arranger.setArrangement(order.arrangement);
+			})(),
+		])
+		await updateCurrent(changed);
+		return changed;
+	})}
 }
 
 async function saveToMemory(name: string): Promise<void> {
-	await storager.saveArrangementStore(name, current);
+	if (running) { await mutex.dispatch<void>(async () => {
+		await storager.saveArrangementStore(name, current);
+	})}
 }
 
 async function copyInMemory(source: string, destination: string): Promise<void> {
-	await storager.copyArrangementStore(source, destination);
+	// nie musi być running, aby się dało (patrz na źródło storager.copyArrangementStore)
+	await mutex.dispatch<void>(async () => {
+		await storager.copyArrangementStore(source, destination);
+	})
 }
 
 async function deleteFromMemory(name: string): Promise<void> {
-	await storager.deleteArrangementStore(name);
+	// nie musi być running, aby się dało (patrz na źródło storager.deleteArrangementStore)
+	await mutex.dispatch<void>(async () => {
+		await storager.deleteArrangementStore(name);
+	});
 }
 
 async function memoryDumpGlobal() {
@@ -138,17 +176,21 @@ async function memoryDumpGlobal() {
 
 async function memoryDumpWindows() {
 	let pairs: [CommonIdType, CustomIdType][] = [];
-	const allWindows = await browser.windows.getAll() // TODO?: add devtool windows?
-	const allWindowIds = allWindows.map(w => w.id);
+	const allWindows = await browser.windows.getAll(preFilterInteresting);
+	const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
 	await allWindowIds.asyncForEach(async id => { pairs.push([id, await browser.sessions.getWindowValue(id, "uid") as string]); });
 	return pairs;
 }
 
 async function clearAllMemory() {
-	const allWindows = await browser.windows.getAll() // TODO?: add devtool windows?
+	const allWindows = await browser.windows.getAll({ windowTypes: ['normal', 'panel', 'popup', 'devtools'] }); // wszystkie windowTypes
 	const allWindowIds = allWindows.map(w => w.id);
 	await Promise.all([
 		allWindowIds.asyncForEach(id => browser.sessions.removeWindowValue(id, "uid")),
 		browser.storage.local.clear(),
 	]);
+}
+
+function showWindowCounter(): number {
+	return storager.showWindowCounter();
 }

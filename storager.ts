@@ -1,4 +1,6 @@
 
+type CustomIdNameType = string;
+
 interface EscribedArrangementStore {
 	arrangement: EscribedArrangement;
 	date: Date | string;
@@ -12,7 +14,7 @@ class ArrangementStore {
 		this.date = date;
 	}
 
-	async toEscribed(customIdName: CustomIdType, customIdMaker: CustomIdMaker): Promise<EscribedArrangementStore> {
+	async toEscribed(customIdName: CustomIdNameType, customIdMaker: CustomIdMaker): Promise<EscribedArrangementStore> {
 		let escribedArrangementStore = {} as EscribedArrangementStore;
 
 		escribedArrangementStore.date = this.date;
@@ -21,7 +23,7 @@ class ArrangementStore {
 		return escribedArrangementStore;
 	}
 
-	static parseEscribed(escribedArrangementStore: EscribedArrangementStore, customIdName: CustomIdType,
+	static parseEscribed(escribedArrangementStore: EscribedArrangementStore, customIdName: CustomIdNameType,
 	commonIdMaker: CommonIdMaker): ArrangementStore {
 
 		const date = new Date(escribedArrangementStore.date);
@@ -36,6 +38,7 @@ function mergeArrangementStores(arrSt1: ArrangementStore, arrSt2: ArrangementSto
 }
 
 interface Storager {
+	showWindowCounter: () => number;
 	changeObserved: (observeInfo: ObserveInfo<CommonIdType>) => Promise<void>;
 	saveArrangementStore: (name: string, arrangementStore: ArrangementStore) => Promise<void>;
 	loadArrangementStore: (name: string) => Promise<ArrangementStore>;
@@ -53,6 +56,10 @@ var storager = {} as Storager;
 	let running = false;
 	let windowCounter: number;
 	let observer: Observer;
+
+	function showWindowCounter(): number {
+		return windowCounter;
+	}
 
 	function getNextUid(): {uid: string, save: Promise<void>} {
 		let uid = (windowCounter++).toString();
@@ -163,6 +170,7 @@ var storager = {} as Storager;
 			console.log("No running Storager!");
 	}
 
+	storager.showWindowCounter = showWindowCounter;
 	storager.changeObserved = changeObserved;
 	storager.saveArrangementStore = saveArrangementStore;
 	storager.loadArrangementStore = loadArrangementStore;
