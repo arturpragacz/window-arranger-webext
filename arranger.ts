@@ -122,7 +122,7 @@ var arranger = {} as Arranger;
 		});
 	}
 
-  async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<Arrangement> {
+	async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<Arrangement> {
 		let newObserveInfo: ObserveInfo<CustomIdType> = await observer.changeObserved(observeInfo, undefined,
 			async id => (await browser.windowsExt.getNative(id)).handle);
 			// async id => {let { handle } = await browser.windowsExt.getNative(id); return handle});
@@ -134,7 +134,7 @@ var arranger = {} as Arranger;
 			"handle", (customId: CustomIdType) => observer.getCommonId(customId)); // to samo co: observer.getCommonId.bind(observer)
 	}
 
-  async function getArrangement(idArray: CommonIdType[]): Promise<Arrangement> {
+	async function getArrangement(idArray: CommonIdType[]): Promise<Arrangement> {
 		let filterHandles = true;
 		if (idArray === undefined) {
 			filterHandles = false;

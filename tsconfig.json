@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
 		"target": "es2017",
-    "typeRoots": ["node_modules/@types", "node_modules/web-ext-types"]
+		"typeRoots": ["node_modules/@types", "node_modules/web-ext-types"]
 	}
 }
