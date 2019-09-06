@@ -12,7 +12,7 @@ class ArrangementStore {
 		this.date = date;
 	}
 
-	async toEscribed(customIdName: string, customIdMaker: CustomIdMaker): Promise<EscribedArrangementStore> {
+	async toEscribed(customIdName: CustomIdType, customIdMaker: CustomIdMaker): Promise<EscribedArrangementStore> {
 		let escribedArrangementStore = {} as EscribedArrangementStore;
 
 		escribedArrangementStore.date = this.date;
@@ -21,7 +21,7 @@ class ArrangementStore {
 		return escribedArrangementStore;
 	}
 
-	static parseEscribed(escribedArrangementStore: EscribedArrangementStore, customIdName: string,
+	static parseEscribed(escribedArrangementStore: EscribedArrangementStore, customIdName: CustomIdType,
 	commonIdMaker: CommonIdMaker): ArrangementStore {
 
 		const date = new Date(escribedArrangementStore.date);
@@ -36,10 +36,11 @@ function mergeArrangementStores(arrSt1: ArrangementStore, arrSt2: ArrangementSto
 }
 
 interface Storager {
-	changeObserved: (observeInfo: ObserveInfo) => Promise<void>;
+	changeObserved: (observeInfo: ObserveInfo<CommonIdType>) => Promise<void>;
 	saveArrangementStore: (name: string, arrangementStore: ArrangementStore) => Promise<void>;
 	loadArrangementStore: (name: string) => Promise<ArrangementStore>;
-	copyArrangementStore: (oldName: string, newName: string) => Promise<void>;
+	copyArrangementStore: (source: string, destination: string) => Promise<void>;
+	deleteArrangementStore: (name: string) => Promise<void>;
 	start: () => Promise<void>;
 	stop: () => void;
 }
@@ -72,15 +73,15 @@ var storager = {} as Storager;
 		return uid;
 	}
 	
-	async function changeObserved(observeInfo: ObserveInfo): Promise<void> {
-		let newObserveInfo: ObserveInfo = await observer.changeObserved(observeInfo, undefined, getWindowUid);
+	async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<void> {
+		let newObserveInfo: ObserveInfo<CustomIdType> = await observer.changeObserved(observeInfo, undefined, getWindowUid);
 	}
 	
 	async function saveArrangementStore(name: string, arrangementStore: ArrangementStore): Promise<void> {
 		name = 'as' + name;
 		// TODO: szukanie nie tylko w już observed
 		const escribedArrangementStore =
-			await arrangementStore.toEscribed("uid", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
+			await arrangementStore.toEscribed("uid", async (id: CommonIdType) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
 			                                      // async (id: number) => getWindowUid(id));
 		const escribedArrangementStoreJSON = JSON.stringify(escribedArrangementStore);
 		await browser.storage.local.set({ [name]: escribedArrangementStoreJSON });
@@ -91,7 +92,7 @@ var storager = {} as Storager;
 
 		const gettingItem = await browser.storage.local.get(name);
 		if (!gettingItem.hasOwnProperty(name))
-			throw "No such Arrangement Store!";
+			throw "loadArrangementStore: No such Arrangement Store!";
 
 		const escribedArrangementStoreJSON = gettingItem[name] as string;
 		if (escribedArrangementStoreJSON === undefined) {
@@ -111,10 +112,15 @@ var storager = {} as Storager;
 
 		const gettingItem = await browser.storage.local.get(source);
 		if (!gettingItem.hasOwnProperty(source))
-			throw "No such Arrangement Store!";
+			throw "copyArrangementStore: No such Arrangement Store!";
 
 		const escribedArrangementStoreJSON = gettingItem[source] as string;
 		await browser.storage.local.set({ [destination]: escribedArrangementStoreJSON });
+	}
+
+	async function deleteArrangementStore(name: string): Promise<void> {
+		name = 'as' + name;
+		await browser.storage.local.remove(name);
 	}
 
 	// async function saveArrangementStorePrefix(arrangementStore: ArrangementStore): Promise<void> {
@@ -149,7 +155,7 @@ var storager = {} as Storager;
 			console.log("Storager already running!");
 	}
 
-	function stop() {
+	function stop(): void {
 		if (running) {
 			running = false;
 		}
@@ -161,6 +167,7 @@ var storager = {} as Storager;
 	storager.saveArrangementStore = saveArrangementStore;
 	storager.loadArrangementStore = loadArrangementStore;
 	storager.copyArrangementStore = copyArrangementStore;
+	storager.deleteArrangementStore = deleteArrangementStore;
 	storager.start = start;
 	storager.stop = stop;
 

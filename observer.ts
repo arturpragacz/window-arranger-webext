@@ -1,15 +1,20 @@
-class ObserveInfo {
-	public deleteFromObserved: (number | string)[] = [];
-	public addToObserved: (number | string)[] = [];
 
-	constructor(oi?: ObserveInfo) {
+type CommonIdType = number;
+type CustomIdType = string;
+type IdType = CommonIdType | CustomIdType;
+
+class ObserveInfo<T extends IdType> {
+	public deleteFromObserved: T[] = [];
+	public addToObserved: T[] = [];
+
+	constructor(oi?: ObserveInfo<T>) {
 		if (oi !== undefined) {
 			this.deleteFromObserved = Array.from(oi.deleteFromObserved);
 			this.addToObserved = Array.from(oi.addToObserved);
 		}
 	}
 
-	add(ids: Array<number | string> | number | string) {
+	add(ids: Array<T> | T) {
 		if (!Array.isArray(ids)) {
 			ids = [ids];
 		}
@@ -17,7 +22,7 @@ class ObserveInfo {
 		return this;
 	}
 
-	delete(ids: Array<number | string> | number | string) {
+	delete(ids: Array<T> | T) {
 		if (!Array.isArray(ids)) {
 			ids = [ids];
 		}
@@ -26,8 +31,8 @@ class ObserveInfo {
 	}
 }
 
-type CustomIdMaker = (commonId: number) => Promise<string>;
-type CommonIdMaker = (customId: string) => number;
+type CustomIdMaker = (commonId: CommonIdType) => Promise<CustomIdType>;
+type CommonIdMaker = (customId: CustomIdType) => CommonIdType;
 
 interface Array<T> {
 	/**
@@ -47,58 +52,58 @@ if (!Array.prototype.asyncForEach) {
 }
 
 class Observer {
-	private observed = new Map<number, string>(); // from ids to customIds
-	private observedInverse = new Map<string, number>(); // from customIds to ids
+	private observed = new Map<CommonIdType, CustomIdType>(); // from ids to customIds
+	private observedInverse = new Map<CustomIdType, CommonIdType>(); // from customIds to ids
 
-	async changeObserved(observeInfo: ObserveInfo,
+	async changeObserved(observeInfo: ObserveInfo<CommonIdType>,
 	customIdMakerDel: CustomIdMaker = this.asyncGetCustomId, //.bind(this),
 	customIdMakerAdd: CustomIdMaker = this.asyncGetCustomId, //.bind(this),
 	commonIdMaker: CommonIdMaker = this.getCommonId) //.bind(this))
-	: Promise<ObserveInfo> {
+	: Promise<ObserveInfo<CustomIdType>> {
 
 		customIdMakerDel = customIdMakerDel.bind(this);
 		customIdMakerAdd = customIdMakerAdd.bind(this);
 		commonIdMaker = commonIdMaker.bind(this);
 
 		let newObserveInfo = new ObserveInfo(observeInfo);
-		await newObserveInfo.deleteFromObserved.asyncForEach(async (commonId: number, index, array) => {
-			let customId: string = await customIdMakerDel(commonId).catch(() => undefined); // TODO: why would you ever use a custom one?
+		await newObserveInfo.deleteFromObserved.asyncForEach(async (commonId: CommonIdType, index, array) => {
+			let customId: CustomIdType = await customIdMakerDel(commonId).catch(() => undefined); // TODO: why would you ever use a custom one?
 			if (customId === undefined) {
 				array[index] = undefined;
 			}
 			else {
-				array[index] = customId;
+				(array[index] as any) = customId; // HACK!
 				this.observed.delete(commonId);
 				this.observedInverse.delete(customId);
 			}
 		});
 		// newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
 
-		await newObserveInfo.addToObserved.asyncForEach(async (commonId: number, index, array) => {
-			let customId: string = await customIdMakerAdd(commonId).catch(() => undefined);
+		await newObserveInfo.addToObserved.asyncForEach(async (commonId: CommonIdType, index, array) => {
+			let customId: CustomIdType = await customIdMakerAdd(commonId).catch(() => undefined);
 			if (customId === undefined) {
 				array[index] = undefined;
 			}
 			else {
-				array[index] = customId;
+				(array[index] as any) = customId; // HACK!
 				this.observed.set(commonId, customId);
 				this.observedInverse.set(customId, commonId);
 			}
 		});
 		// newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
 
-		return newObserveInfo;
+		return newObserveInfo as any; // HACK!
 	}
 
-	async asyncGetCustomId(commonId: number): Promise<string> {
+	async asyncGetCustomId(commonId: CommonIdType): Promise<CustomIdType> {
 		return this.getCustomId(commonId);
 	}
 
-	getCustomId(commonId: number): string {
+	getCustomId(commonId: CommonIdType): CustomIdType {
 		return this.observed.get(commonId);
 	}
 
-	getCommonId(customId: string): number {
+	getCommonId(customId: CustomIdType): CommonIdType {
 		return this.observedInverse.get(customId);
 	}
 }

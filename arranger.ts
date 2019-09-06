@@ -13,15 +13,15 @@ class Possition {
 	}
 }
 
-type EscribedArrangement = Array<{position: Possition}>; //[customIdName: string]: string, 
+type EscribedArrangement = Array<{position: Possition}>; //[customIdName: string]: CustomIdType, 
 
-class Arrangement extends Map<number, Possition> {
-	async toEscribed(customIdName: string, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
+class Arrangement extends Map<CommonIdType, Possition> {
+	async toEscribed(customIdName: CustomIdType, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
 		let escribedArrangement = [] as EscribedArrangement;
 
 		for (let posId of this) {
 			let id = posId[0];
-			let customId: string = await customIdMaker(id).catch(() => undefined);
+			let customId: CustomIdType = await customIdMaker(id).catch(() => undefined);
 			if (customId !== undefined) {
 				escribedArrangement.push({ [customIdName]: customId, position: posId[1] });
 			}
@@ -30,15 +30,15 @@ class Arrangement extends Map<number, Possition> {
 		return escribedArrangement;
 	}
 
-	static parseEscribed(escribedArrangement: EscribedArrangement, customIdName: string,
+	static parseEscribed(escribedArrangement: EscribedArrangement, customIdName: CustomIdType,
 	commonIdMaker: CommonIdMaker): Arrangement {
 
 		let arrangement = new Arrangement();
 
 		for (let posWindow of escribedArrangement) {
 			Object.setPrototypeOf(posWindow.position, Possition.prototype);
-			const customId: string = posWindow[customIdName];
-			let commonId: number = commonIdMaker(customId);
+			const customId: CustomIdType = posWindow[customIdName];
+			let commonId: CommonIdType = commonIdMaker(customId);
 			if (commonId !== undefined) {
 				arrangement.set(commonId, posWindow.position);
 			}
@@ -55,7 +55,7 @@ class Arrangement extends Map<number, Possition> {
 
 // TODO: type-safe Arrangement With Failed Conversion
 // class ArrangementWithFailedConversion extends Arrangement {
-// 	customIdsFailedConversion: Map<string, Position>;
+// 	customIdsFailedConversion: Map<CustomIdType, Position>;
 // }
 
 function mergeArrangements(arr1: Arrangement, arr2: Arrangement): Arrangement {
@@ -67,8 +67,8 @@ declare namespace browser.windowsExt {
 }
 
 interface Arranger {
-	changeObserved: (observeInfo: ObserveInfo) => Promise<Arrangement>;
-	getArrangement: (idArray: number[]) => Promise<Arrangement>;
+	changeObserved: (observeInfo: ObserveInfo<CommonIdType>) => Promise<Arrangement>;
+	getArrangement: (idArray: CommonIdType[]) => Promise<Arrangement>;
 	setArrangement: (arrangement: Arrangement) => Promise<Arrangement>;
 	onArrangementChanged: EventTarget;
 	startConnection: () => void;
@@ -103,8 +103,8 @@ var arranger = {} as Arranger;
 		status: string;
 	}
 
-	async function sendMessage(type: "changeObserved", value: ObserveInfo): Promise<EscribedArrangement>;
-	async function sendMessage(type: "getArrangement", value: string | string[]): Promise<EscribedArrangement>;
+	async function sendMessage(type: "changeObserved", value: ObserveInfo<CustomIdType>): Promise<EscribedArrangement>;
+	async function sendMessage(type: "getArrangement", value: string | CustomIdType[]): Promise<EscribedArrangement>;
 	async function sendMessage(type: "setArrangement", value: EscribedArrangement): Promise<EscribedArrangement>;
 	// async function sendMessage(type: "updateArrangement", value: any): Promise<EscribedArrangement>; // TODO: czy na pewno any? (popatrz w źródło aplikacji)
 	async function sendMessage(type: string, value: any): Promise<any> {
@@ -122,8 +122,8 @@ var arranger = {} as Arranger;
 		});
 	}
 
-  async function changeObserved(observeInfo: ObserveInfo): Promise<Arrangement> {
-		let newObserveInfo: ObserveInfo = await observer.changeObserved(observeInfo, undefined,
+  async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<Arrangement> {
+		let newObserveInfo: ObserveInfo<CustomIdType> = await observer.changeObserved(observeInfo, undefined,
 			async id => (await browser.windowsExt.getNative(id)).handle);
 			// async id => {let { handle } = await browser.windowsExt.getNative(id); return handle});
 		
@@ -131,21 +131,21 @@ var arranger = {} as Arranger;
 		newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
 
 		return Arrangement.parseEscribed(await sendMessage("changeObserved", newObserveInfo) as EscribedArrangement,
-			"handle", (customId: string) => observer.getCommonId(customId)); // to samo co: observer.getCommonId.bind(observer)
+			"handle", (customId: CustomIdType) => observer.getCommonId(customId)); // to samo co: observer.getCommonId.bind(observer)
 	}
 
-  async function getArrangement(idArray: number[]): Promise<Arrangement> {
+  async function getArrangement(idArray: CommonIdType[]): Promise<Arrangement> {
 		let filterHandles = true;
 		if (idArray === undefined) {
 			filterHandles = false;
 		}
 		
-		let value: string | string[];
+		let value: string | CustomIdType[];
 		if (filterHandles) {
-			let handleArray: string[] = [];
+			let handleArray: CustomIdType[] = [];
 			for (let id of idArray) {
 				// TODO: szukanie nie tylko w już observed
-				let handle: string = observer.getCustomId(id);
+				let handle: CustomIdType = observer.getCustomId(id);
 				if (handle !== undefined) {
 					handleArray.push(handle);
 				}
@@ -163,7 +163,7 @@ var arranger = {} as Arranger;
 	async function setArrangement(arrangement: Arrangement): Promise<Arrangement> {
 		// TODO: szukanie nie tylko w już observed
 		const escribedArrangement: EscribedArrangement =
-			await arrangement.toEscribed("handle", async (id: number) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
+			await arrangement.toEscribed("handle", async (id: CommonIdType) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
 		const responseEscribedArrangement: EscribedArrangement = await sendMessage("setArrangement", escribedArrangement);
 		// TODO: szukanie nie tylko w już observed
 		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observer.getCommonId.bind(observer));
