@@ -169,7 +169,7 @@ var arranger = {} as Arranger;
 		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observer.getCommonId.bind(observer));
 	}
 
-	// TODO:
+	// TODO: function updateArrangement
 	// async function updateArrangement(arrangement: Arrangement): Promise<Arrangement> {
 	// }
 

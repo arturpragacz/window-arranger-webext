@@ -1,11 +1,13 @@
 html, body {
 	width: 350px;
-	background: black;
+	background: #23242d;
 }
 
 a {
 	margin: 10px;
-	display: inline-block;
+	display: block;
+	color: #d7c6c6;
+	text-align: center;
 }
 
 .panel {

@@ -1,14 +1,65 @@
+// TODO: OBRZYDLIWY HACK!
+export interface BackgroundWindow {
+	running: boolean;
+	startstop: boolean;
+
+	windowCreatedTimeout: number;
+	backupTimeInterval: number;
+	
+	current: ArrangementStore;
+	backupTimerIds: number[];
+	
+	delay: (t: number) => Promise<unknown>;
+	
+	preFilterInteresting: browser.windows.WindowType[];
+
+	isInteresting: (wndw: browser.windows.Window) => Promise<boolean>;
+	
+	
+	mutex: Mutex;
+	
+	windowCreated: (wndw: browser.windows.Window) => Promise<void>;
+	
+	windowRemoved: (wndwId: number) => Promise<void>;
+	
+	windowsRearranged: (e: CustomEvent) => Promise<void>;
+	
+	updateCurrent: (update: Arrangement | ArrangementStore) => Promise<void>;
+	
+	saveCurrent: () => Promise<void>;
+	
+	startMain: () => Promise<void>;
+	
+	stopMain: () => void;
+	
+	
+	loadFromMemory: (name: string) => Promise<Arrangement>;
+	
+	saveToMemory: (name: string) => Promise<void>;
+	
+	copyInMemory: (source: string, destination: string) => Promise<void>;
+	
+	deleteFromMemory: (name: string) => Promise<void>;
+	
+	memoryDumpGlobal: () => any;
+	
+	memoryDumpWindows: () => any;
+
+	clearAllMemory: () => Promise<void>;
+	
+	showWindowCounter: () => number;
+}
 
 var running = false;
 var startstop = false;
 
-const windowCreatedTimeout = 40000;
-const backupTimeInterval = 300000;
+var windowCreatedTimeout = 40000;
+var backupTimeInterval = 300000;
 
 var current: ArrangementStore;
 var backupTimerIds: number[] = [];
 
-const delay = (t: number) => new Promise(resolve => setTimeout(resolve, t));
+var delay = (t: number) => new Promise(resolve => setTimeout(resolve, t));
 
 var preFilterInteresting = undefined; // defaults to {populate: false, windowTypes: ['normal', 'panel', 'popup']};
                                                                        // TODO?: add devtool windows?
@@ -22,14 +73,23 @@ var mutex = new Mutex();
 async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 	await delay(windowCreatedTimeout);
 	if (running) { await mutex.dispatch(async () => {
-		const changeOi = new ObserveInfo<CommonIdType>().add(wndw.id);
+		const id = wndw.id;
+		const changeOi = new ObserveInfo<CommonIdType>().add(id);
 		await Promise.all([
 			storager.changeObserved(changeOi),
 			(async() => {
-				const arrangementUpdate = await arranger.changeObserved(changeOi);
-				await updateCurrent(arrangementUpdate);
+				const changed1: Arrangement = await arranger.changeObserved(changeOi);
+
+				let moveToTopArrangement = new Arrangement();
+				const topPossition: Possition = changed1.get(id).moveToTop();
+				moveToTopArrangement.set(id, topPossition);
+				const changed2: Arrangement = await arranger.setArrangement(moveToTopArrangement);
+
+				const changed = mergeArrangements(changed1, changed2);
+
+				await updateCurrent(changed);
 			})(),
-		])
+		]);
 	})}
 }
 
@@ -67,7 +127,7 @@ async function saveCurrent(): Promise<void> {
 }
 
 
-async function mainStart(): Promise<void> {
+async function startMain(): Promise<void> {
 	if (!running && !startstop) {
 		startstop = true;
 
@@ -100,7 +160,7 @@ async function mainStart(): Promise<void> {
 		console.log("Main already running!");
 }
 
-function mainStop(): void {
+function stopMain(): void {
 	if (running && !startstop) {
 		running = false;
 		startstop = true;
@@ -123,25 +183,16 @@ function mainStop(): void {
 		console.log("No running Main!");
 }
 
-browser.browserAction.onClicked.addListener(function () {
-	if (running) {
-		mainStop();
-	}
-	else {
-		mainStart();
-	}
-	// running = !running;
-})
-
+startMain();
 
 
 async function loadFromMemory(name: string): Promise<Arrangement> {
 	if (running) { return mutex.dispatch(async () => {
 		let changed: Arrangement;
+		const order = await storager.loadArrangementStore(name);
 		await Promise.all([
 			storager.saveArrangementStore("$auxiliary", current),
 			(async() => {
-				const order = await storager.loadArrangementStore(name);
 				changed = await arranger.setArrangement(order.arrangement);
 			})(),
 		])
