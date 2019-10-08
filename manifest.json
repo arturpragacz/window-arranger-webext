@@ -4,7 +4,7 @@
 	"description": "Improves arrangement of windows.",
 	"author": "Artur Pragacz",
 	"homepage_url": "https://extension.pragacz.com",
-	"version": "1.0",
+	"version": "1.0.2b",
 
 	"browser_specific_settings": {
 		"gecko": {
@@ -20,7 +20,7 @@
 
 	"browser_action": {
 		"browser_style": true,
-		"default_title": "Tooltip for the button, displayed when the user moves their mouse over it. If the button is added to the browser's menu panel, this is also shown under the app icon.",
+		"default_title": "Window Arranger",
 		"default_popup": "page.html",
 		"default_icon": {
 			"19": "icons/window19.png",

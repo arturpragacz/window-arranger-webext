@@ -90,7 +90,9 @@ async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 				await updateCurrent(changed);
 			})(),
 		]);
-	})}
+	}, "windowCreated")}
+	else
+		console.log("No running Main!");
 }
 
 async function windowRemoved(wndwId: number): Promise<void> {
@@ -103,14 +105,18 @@ async function windowRemoved(wndwId: number): Promise<void> {
 		current.arrangement.delete(wndwId);
 		current.date = new Date();
 		await saveCurrent();
-	})}
+	}, "windowRemoved")}
+	else
+		console.log("No running Main!");
 }
 
 async function windowsRearranged(e: CustomEvent): Promise<void> {
 	if (running) { await mutex.dispatch(async () => {
 		const arrangementUpdate: Arrangement = e.detail;
 		return updateCurrent(arrangementUpdate);
-	})}
+	}, "windowsRearranged")}
+	else
+		console.log("No running Main!");
 }
 
 async function updateCurrent(update: Arrangement | ArrangementStore): Promise<void> {
@@ -151,13 +157,13 @@ async function startMain(): Promise<void> {
 			arranger.onArrangementChanged.addEventListener("arrangementChanged", windowsRearranged);
 
 			backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backupLong"), backupTimeInterval));
-		});
+		}, "startMain");
 
 		running = true;
 		startstop = false;
 	}
 	else
-		console.log("Main already running!");
+		throw "Main already running!";
 }
 
 function stopMain(): void {
@@ -180,7 +186,7 @@ function stopMain(): void {
 		startstop = false;
 	}
 	else
-		console.log("No running Main!");
+		throw "No running Main!";
 }
 
 startMain();
@@ -198,27 +204,31 @@ async function loadFromMemory(name: string): Promise<Arrangement> {
 		])
 		await updateCurrent(changed);
 		return changed;
-	})}
+	}, "loadFromMemory")}
+	else
+		throw "No running Main!";
 }
 
 async function saveToMemory(name: string): Promise<void> {
 	if (running) { await mutex.dispatch<void>(async () => {
 		await storager.saveArrangementStore(name, current);
-	})}
+	}, "saveToMemory")}
+	else
+		throw "No running Main!";
 }
 
 async function copyInMemory(source: string, destination: string): Promise<void> {
 	// nie musi być running, aby się dało (patrz na źródło storager.copyArrangementStore)
 	await mutex.dispatch<void>(async () => {
 		await storager.copyArrangementStore(source, destination);
-	})
+	}, "copyInMemory")
 }
 
 async function deleteFromMemory(name: string): Promise<void> {
 	// nie musi być running, aby się dało (patrz na źródło storager.deleteArrangementStore)
 	await mutex.dispatch<void>(async () => {
 		await storager.deleteArrangementStore(name);
-	});
+	}, "deleteFromMemory");
 }
 
 async function memoryDumpGlobal() {

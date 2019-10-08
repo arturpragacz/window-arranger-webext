@@ -1,4 +1,6 @@
 zunifikować, gdzie ustawiamy timery
 najlepiej w jednym miejscu gdzieś w skrypcie i wysyłany do apki jako config na starcie (a może potem też dynamiczne zmiany)
 
+zdebugować mutexy
+
 jakieś UI
