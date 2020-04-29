@@ -7,9 +7,9 @@
 			"label": "build",
 			"type": "shell",
 			"command": "make",
-			"windows": {
-				"command": "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.16.27023\\bin\\Hostx64\\x64\\nmake.exe\""
-			},
+			// "windows": {
+			// 	"command": "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.16.27023\\bin\\Hostx64\\x64\\nmake.exe\""
+			// },
 			"group": "build",
 			"dependsOn": [
 				"typescript build"
@@ -19,8 +19,14 @@
 		},
 		{
 			"label": "typescript build",
-			"type": "typescript",
-			"tsconfig": "tsconfig.json",
+			"linux": {
+				"type": "typescript",
+				"tsconfig": "tsconfig.json"
+			},
+			"windows": {
+				"type": "shell",
+				"command": "tsc -p tsconfig.json"
+			},
 			"problemMatcher": [
 				"$tsc"
 			],
@@ -36,9 +42,9 @@
 			"label": "run",
 			"type": "shell",
 			"command": "make",
-			"windows": {
-				"command": "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.16.27023\\bin\\Hostx64\\x64\\nmake.exe\""
-			},
+			// "windows": {
+			// 	"command": "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.16.27023\\bin\\Hostx64\\x64\\nmake.exe\""
+			// },
 			"args": [
 				"run"
 			],

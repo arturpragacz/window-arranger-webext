@@ -4,7 +4,7 @@
 	"description": "Improves arrangement of windows.",
 	"author": "Artur Pragacz",
 	"homepage_url": "https://extension.pragacz.com",
-	"version": "1.0.2b",
+	"version": "1.0.3a1",
 
 	"browser_specific_settings": {
 		"gecko": {

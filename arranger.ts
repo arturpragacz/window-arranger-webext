@@ -1,69 +1,7 @@
-class Possition {
-	inDefaultGroup: boolean;
-	group: any;
-	index: any;
-	constructor(inDefaultGroup, group, index) {
-		this.inDefaultGroup = inDefaultGroup;
-		this.group = group;
-		this.index = index;
-	}
-
-	moveToTop() {
-		return new Possition(this.inDefaultGroup, this.group, 0);
-	}
-}
-
-type EscribedArrangement = Array<{position: Possition}>; //[customIdName: CustomIdNameType]: CustomIdType, 
-
-class Arrangement extends Map<CommonIdType, Possition> {
-	async toEscribed(customIdName: CustomIdNameType, customIdMaker: CustomIdMaker): Promise<EscribedArrangement> {
-		let escribedArrangement = [] as EscribedArrangement;
-
-		for (let posId of this) {
-			let id = posId[0];
-			let customId: CustomIdType = await customIdMaker(id).catch(() => undefined);
-			if (customId !== undefined) {
-				escribedArrangement.push({ [customIdName]: customId, position: posId[1] });
-			}
-		}
-
-		return escribedArrangement;
-	}
-
-	static parseEscribed(escribedArrangement: EscribedArrangement, customIdName: CustomIdNameType,
-	commonIdMaker: CommonIdMaker): Arrangement {
-
-		let arrangement = new Arrangement();
-
-		for (let posWindow of escribedArrangement) {
-			Object.setPrototypeOf(posWindow.position, Possition.prototype);
-			const customId: CustomIdType = posWindow[customIdName];
-			let commonId: CommonIdType = commonIdMaker(customId);
-			if (commonId !== undefined) {
-				arrangement.set(commonId, posWindow.position);
-			}
-			else {
-				if (arrangement['customIdsFailedConversion'] === undefined)
-					arrangement['customIdsFailedConversion'] = new Map();
-				arrangement['customIdsFailedConversion'].set(customId, posWindow.position);
-			}
-		}
-
-		return arrangement;
-	}
-}
-
-// TODO: type-safe Arrangement With Failed Conversion
-// class ArrangementWithFailedConversion extends Arrangement {
-// 	customIdsFailedConversion: Map<CustomIdType, Position>;
-// }
-
-function mergeArrangements(arr1: Arrangement, arr2: Arrangement): Arrangement {
-	return new Arrangement(function*() { yield* arr1; yield* arr2; }());
-}
+type handleType = string
 
 declare namespace browser.windowsExt {
-	function getNative(id: number): Promise<{handle: string}>;
+	function getNative(id: number): Promise<{handle: handleType}>;
 }
 
 interface Arranger {
@@ -84,7 +22,7 @@ var arranger = {} as Arranger;
 	let port: browser.runtime.Port;
 	let runningConnection = false;
 	let messageIdCounter: number;
-	let observer: Observer;
+	let observedIdMapper: ObservedIdMapper<CommonIdType, handleType>;
 
 	class Message {
 		source: string;
@@ -96,6 +34,7 @@ var arranger = {} as Arranger;
 			this.id = id;
 			this.type = type;
 			this.value = value;
+			console.log(this); // TODO: delete
 		}
 	}
 
@@ -103,9 +42,9 @@ var arranger = {} as Arranger;
 		status: string;
 	}
 
-	async function sendMessage(type: "changeObserved", value: ObserveInfo<CustomIdType>): Promise<EscribedArrangement>;
-	async function sendMessage(type: "getArrangement", value: string | CustomIdType[]): Promise<EscribedArrangement>;
-	async function sendMessage(type: "setArrangement", value: EscribedArrangement): Promise<EscribedArrangement>;
+	async function sendMessage(type: "changeObserved", value: ObserveInfo<handleType>): Promise<EscribedArrangement<handleType>>;
+	async function sendMessage(type: "getArrangement", value: string | handleType[]): Promise<EscribedArrangement<handleType>>;
+	async function sendMessage(type: "setArrangement", value: EscribedArrangement<handleType>): Promise<EscribedArrangement<handleType>>;
 	// async function sendMessage(type: "updateArrangement", value: any): Promise<EscribedArrangement>; // TODO: czy na pewno any? (popatrz w źródło aplikacji)
 	async function sendMessage(type: string, value: any): Promise<any> {
 		return new Promise(function (resolve, reject) {
@@ -113,6 +52,7 @@ var arranger = {} as Arranger;
 			port.onMessage.addListener(function callback(response: ResponseMessage) {
 				if (response.source === "browser" && response.id === messageId && response.type === "response") {
 					port.onMessage.removeListener(callback);
+					console.log(response); // TODO: delete
 					if (response.status === "OK" && "value" in response) {
 						resolve(response.value);
 					}
@@ -123,15 +63,15 @@ var arranger = {} as Arranger;
 	}
 
 	async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<Arrangement> {
-		let newObserveInfo: ObserveInfo<CustomIdType> = await observer.changeObserved(observeInfo, undefined,
+		let newObserveInfo: ObserveInfo<handleType> = await observedIdMapper.changeObserved(observeInfo,
 			async id => (await browser.windowsExt.getNative(id)).handle);
 			// async id => {let { handle } = await browser.windowsExt.getNative(id); return handle});
 		
 		newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
 		newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
 
-		return Arrangement.parseEscribed(await sendMessage("changeObserved", newObserveInfo) as EscribedArrangement,
-			"handle", (customId: CustomIdType) => observer.getCommonId(customId)); // to samo co: observer.getCommonId.bind(observer)
+		return Arrangement.parseEscribed(await sendMessage("changeObserved", newObserveInfo) as EscribedArrangement<handleType>,
+			"handle", (customId: handleType) => observedIdMapper.getCommonId(customId)).arrangement; // to samo co: observedIdMapper.getCommonId.bind(observedIdMapper)
 	}
 
 	async function getArrangement(idArray: CommonIdType[]): Promise<Arrangement> {
@@ -140,12 +80,12 @@ var arranger = {} as Arranger;
 			filterHandles = false;
 		}
 		
-		let value: string | CustomIdType[];
+		let value: string | handleType[];
 		if (filterHandles) {
-			let handleArray: CustomIdType[] = [];
+			let handleArray: handleType[] = [];
 			for (let id of idArray) {
 				// TODO: szukanie nie tylko w już observed
-				let handle: CustomIdType = observer.getCustomId(id);
+				let handle: handleType = observedIdMapper.getCustomId(id);
 				if (handle !== undefined) {
 					handleArray.push(handle);
 				}
@@ -157,16 +97,20 @@ var arranger = {} as Arranger;
 		}
 
 		// TODO: szukanie nie tylko w już observed
-		return Arrangement.parseEscribed(await sendMessage("getArrangement", value), "handle", observer.getCommonId.bind(observer));
+		return Arrangement.parseEscribed(await sendMessage("getArrangement", value), "handle", observedIdMapper.getCommonId.bind(observedIdMapper)).arrangement;
+		// TODO: error handling
 	}
 
 	async function setArrangement(arrangement: Arrangement): Promise<Arrangement> {
 		// TODO: szukanie nie tylko w już observed
-		const escribedArrangement: EscribedArrangement =
-			await arrangement.toEscribed("handle", async (id: CommonIdType) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
-		const responseEscribedArrangement: EscribedArrangement = await sendMessage("setArrangement", escribedArrangement);
+		const escribedArrangement: EscribedArrangement<handleType> =
+			(await arrangement.toEscribed("handle", async (id: CommonIdType) => observedIdMapper.getCustomId(id))).escribedArrangement; //observedIdMapper.asyncGetCustomId.bind(observedIdMapper)
+		// TODO: error handling
+		const responseEscribedArrangement: EscribedArrangement<handleType> = await sendMessage("setArrangement", escribedArrangement);
+		// TODO: error handling
 		// TODO: szukanie nie tylko w już observed
-		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observer.getCommonId.bind(observer));
+		return Arrangement.parseEscribed(responseEscribedArrangement, "handle", observedIdMapper.getCommonId.bind(observedIdMapper)).arrangement;
+		// TODO: error handling
 	}
 
 	// TODO: function updateArrangement
@@ -176,8 +120,9 @@ var arranger = {} as Arranger;
 	let onArrangementChanged = new EventTarget();
 	function handleMessageFromApp(message: ResponseMessage) {
 		if (message.status === "OK" && message.type === "arrangementChanged") {
-			const value = Arrangement.parseEscribed(message.value, "handle", observer.getCommonId.bind(observer));
+			const value = Arrangement.parseEscribed(message.value, "handle", observedIdMapper.getCommonId.bind(observedIdMapper));
 			const event = new CustomEvent(message.type, { detail: value });
+			console.log(message); // TODO: delete
 			onArrangementChanged.dispatchEvent(event);
 		}
 	}
@@ -192,7 +137,7 @@ var arranger = {} as Arranger;
 			});
 			runningConnection = true;
 			messageIdCounter = 1;
-			observer = new Observer();
+			observedIdMapper = new ObservedIdMapper();
 		}
 		else
 			console.log("Connection already running!");

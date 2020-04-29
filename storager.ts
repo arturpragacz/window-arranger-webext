@@ -1,8 +1,7 @@
-
-type CustomIdNameType = string;
+type uidType = string
 
 interface EscribedArrangementStore {
-	arrangement: EscribedArrangement;
+	arrangement: EscribedArrangement<uidType>;
 	date: Date | string;
 }
 
@@ -14,36 +13,40 @@ class ArrangementStore {
 		this.date = date;
 	}
 
-	async toEscribed(customIdName: CustomIdNameType, customIdMaker: CustomIdMaker): Promise<EscribedArrangementStore> {
+	async toEscribed(customIdName: CustomIdNameType, customIdMaker: CustomIdMaker<CommonIdType, uidType>): Promise<EscribedArrangementStore> {
 		let escribedArrangementStore = {} as EscribedArrangementStore;
 
 		escribedArrangementStore.date = this.date;
-		escribedArrangementStore.arrangement = await this.arrangement.toEscribed(customIdName, customIdMaker);
+		escribedArrangementStore.arrangement = (await this.arrangement.toEscribed(customIdName, customIdMaker)).escribedArrangement;
+		//TODO: error handling
 
 		return escribedArrangementStore;
 	}
 
 	static parseEscribed(escribedArrangementStore: EscribedArrangementStore, customIdName: CustomIdNameType,
-	commonIdMaker: CommonIdMaker): ArrangementStore {
+	commonIdMaker: CommonIdMaker<CommonIdType, uidType>): ArrangementStore {
 
 		const date = new Date(escribedArrangementStore.date);
-		const arrangement = Arrangement.parseEscribed(escribedArrangementStore.arrangement, customIdName, commonIdMaker);
+		const arrangement = Arrangement.parseEscribed(escribedArrangementStore.arrangement, customIdName, commonIdMaker).arrangement;
+		// TODO: error handling
 
 		return new ArrangementStore(arrangement, date);
 	}
 }
 
 function mergeArrangementStores(arrSt1: ArrangementStore, arrSt2: ArrangementStore): ArrangementStore {
-	return new ArrangementStore(mergeArrangements(arrSt1.arrangement, arrSt2.arrangement), arrSt2.date);
+	return new ArrangementStore(mergeArrangements(arrSt1.arrangement, arrSt2.arrangement), arrSt1.date > arrSt2.date ? arrSt1.date : arrSt2.date);
 }
 
 interface Storager {
 	showWindowCounter: () => number;
 	changeObserved: (observeInfo: ObserveInfo<CommonIdType>) => Promise<void>;
-	saveArrangementStore: (name: string, arrangementStore: ArrangementStore) => Promise<void>;
-	loadArrangementStore: (name: string) => Promise<ArrangementStore>;
-	copyArrangementStore: (source: string, destination: string) => Promise<void>;
-	deleteArrangementStore: (name: string) => Promise<void>;
+	saveArrangementStore: (name: string, arrangementStore: ArrangementStore, maxSize?: number) => Promise<void>;
+	loadArrangementStore: (name: string, index?: number) => Promise<ArrangementStore>;
+	copyArrangementStore: (source: string, destination: string, index?: number, maxSize?: number) => Promise<void>;
+	copyArrangementStoreArray: (source: string, destination: string) => Promise<void>;
+	deleteArrangementStore: (name: string, index?: number) => Promise<void>;
+	deleteArrangementStoreArray: (name: string) => Promise<void>;
 	start: () => Promise<void>;
 	stop: () => void;
 }
@@ -55,20 +58,22 @@ var storager = {} as Storager;
 
 	let running = false;
 	let windowCounter: number;
-	let observer: Observer;
+	let observedIdMapper: ObservedIdMapper<CommonIdType, uidType>;
+	const STORAGE_PREFIX = "as_"
+	const DEFAULT_MAX_SIZE = 10
 
 	function showWindowCounter(): number {
 		return windowCounter;
 	}
 
-	function getNextUid(): {uid: string, save: Promise<void>} {
+	function getNextUid(): {uid: uidType, save: Promise<void>} {
 		let uid = (windowCounter++).toString();
 		let save = browser.storage.local.set({windowCounter});
 		return {uid, save};
 	}
 
-	async function getWindowUid(id: number): Promise<string> {
-		let uid = await browser.sessions.getWindowValue(id, "uid") as string;
+	async function getWindowUid(id: number): Promise<uidType> {
+		let uid = await browser.sessions.getWindowValue(id, "uid") as uidType;
 		if (uid === undefined) {
 			let save: Promise<void>;
 			({uid, save} = getNextUid());
@@ -81,64 +86,116 @@ var storager = {} as Storager;
 	}
 	
 	async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<void> {
-		let newObserveInfo: ObserveInfo<CustomIdType> = await observer.changeObserved(observeInfo, undefined, getWindowUid);
+		let newObserveInfo: ObserveInfo<uidType> = await observedIdMapper.changeObserved(observeInfo, getWindowUid);
 	}
 	
-	async function saveArrangementStore(name: string, arrangementStore: ArrangementStore): Promise<void> {
-		name = 'as' + name;
+	async function saveArrangementStore(name: string, arrangementStore: ArrangementStore, maxSize?: number): Promise<void> {
+		name = STORAGE_PREFIX + name;
+
+		let escribedArrangementStoreJSONArray: string[] = [];
+		const gettingItem = await browser.storage.local.get(name);
+		if (gettingItem.hasOwnProperty(name))
+			escribedArrangementStoreJSONArray = gettingItem[name] as string[];
+
 		// TODO: szukanie nie tylko w już observed
 		const escribedArrangementStore =
-			await arrangementStore.toEscribed("uid", async (id: CommonIdType) => observer.getCustomId(id)); //observer.asyncGetCustomId.bind(observer)
-			                                      // async (id: number) => getWindowUid(id));
+			await arrangementStore.toEscribed("uid", async (id: CommonIdType) => observedIdMapper.getCustomId(id)); //observedIdMapper.asyncGetCustomId.bind(observedIdMapper)
+																						// async (id: number) => getWindowUid(id));
+		//TODO: error handling
 		const escribedArrangementStoreJSON = JSON.stringify(escribedArrangementStore);
-		await browser.storage.local.set({ [name]: escribedArrangementStoreJSON });
+
+		escribedArrangementStoreJSONArray.unshift(escribedArrangementStoreJSON);
+		if (maxSize === undefined)
+			maxSize = DEFAULT_MAX_SIZE;
+		escribedArrangementStoreJSONArray = escribedArrangementStoreJSONArray.slice(0, maxSize);
+
+		await browser.storage.local.set({ [name]: escribedArrangementStoreJSONArray });
 	}
 
-	async function loadArrangementStore(name: string): Promise<ArrangementStore> {
-		name = 'as' + name;
+	async function loadArrangementStore(name: string, index?: number): Promise<ArrangementStore> {
+		name = STORAGE_PREFIX + name;
 
 		const gettingItem = await browser.storage.local.get(name);
 		if (!gettingItem.hasOwnProperty(name))
 			throw "loadArrangementStore: No such Arrangement Store!";
+		const escribedArrangementStoreJSONArray = gettingItem[name] as string[];
 
-		const escribedArrangementStoreJSON = gettingItem[name] as string;
-		if (escribedArrangementStoreJSON === undefined) {
-			// throw 'No Arrangement Store!';
-			return undefined;
-		}
-		else {
-			const escribedArrangementStore = JSON.parse(escribedArrangementStoreJSON) as EscribedArrangementStore;
-			// TODO: szukanie nie tylko w już observed???
-			return ArrangementStore.parseEscribed(escribedArrangementStore, "uid", observer.getCommonId.bind(observer));
-		}
+		if (index === undefined)
+			index = 0;
+		
+		const escribedArrangementStoreJSON = escribedArrangementStoreJSONArray[index];
+		if (escribedArrangementStoreJSON === undefined)
+			throw "loadArrangementStore: No such Arrangement Store Index!";
+		const escribedArrangementStore = JSON.parse(escribedArrangementStoreJSON) as EscribedArrangementStore;
+		// TODO: szukanie nie tylko w już observed???
+		return ArrangementStore.parseEscribed(escribedArrangementStore, "uid", observedIdMapper.getCommonId.bind(observedIdMapper));
 	}
 
-	async function copyArrangementStore(source: string, destination: string): Promise<void> {
-		source = 'as' + source;
-		destination = 'as' + destination;
+	async function copyArrangementStore(source: string, destination: string, index?: number, maxSize?: number): Promise<void> {
+		source = STORAGE_PREFIX + source;
+		destination = STORAGE_PREFIX + destination;
+
+		let gettingItem = await browser.storage.local.get(source);
+		if (!gettingItem.hasOwnProperty(source))
+			throw "copyArrangementStore: No such Arrangement Store!";
+		let escribedArrangementStoreJSONArray = gettingItem[source] as string[];
+
+		if (index === undefined)
+			index = 0;
+		
+		const escribedArrangementStoreJSON = escribedArrangementStoreJSONArray[index];
+		if (escribedArrangementStoreJSON === undefined)
+			throw "loadArrangementStore: No such Arrangement Store Index!";
+
+		escribedArrangementStoreJSONArray = [];
+		gettingItem = await browser.storage.local.get(destination);
+		if (gettingItem.hasOwnProperty(destination))
+			escribedArrangementStoreJSONArray = gettingItem[destination] as string[];
+
+		escribedArrangementStoreJSONArray.unshift(escribedArrangementStoreJSON);
+		if (maxSize === undefined)
+			maxSize = DEFAULT_MAX_SIZE;
+		escribedArrangementStoreJSONArray = escribedArrangementStoreJSONArray.slice(0, maxSize);
+
+		await browser.storage.local.set({ [destination]: escribedArrangementStoreJSONArray });
+	}
+
+	async function copyArrangementStoreArray(source: string, destination: string): Promise<void> {
+		source = 'as_' + source;
+		destination = 'as_' + destination;
 
 		const gettingItem = await browser.storage.local.get(source);
 		if (!gettingItem.hasOwnProperty(source))
 			throw "copyArrangementStore: No such Arrangement Store!";
+		const escribedArrangementStoreJSONArray = gettingItem[source] as string[];
 
-		const escribedArrangementStoreJSON = gettingItem[source] as string;
-		await browser.storage.local.set({ [destination]: escribedArrangementStoreJSON });
+		await browser.storage.local.set({ [destination]: escribedArrangementStoreJSONArray });
 	}
 
-	async function deleteArrangementStore(name: string): Promise<void> {
-		name = 'as' + name;
+	async function deleteArrangementStore(name: string, index?: number): Promise<void> {
+		name = STORAGE_PREFIX + name;
+
+		const gettingItem = await browser.storage.local.get(name);
+		if (!gettingItem.hasOwnProperty(name))
+			// throw "copyArrangementStore: No such Arrangement Store!";
+			return;
+		let escribedArrangementStoreJSONArray = gettingItem[name] as string[];
+
+		if (index === undefined)
+			index = 0;
+
+		if (escribedArrangementStoreJSONArray[index] === undefined)
+			// throw "loadArrangementStore: No such Arrangement Store Index!";
+			return;
+		escribedArrangementStoreJSONArray.splice(index, 1);
+
+		await browser.storage.local.set({ [name]: escribedArrangementStoreJSONArray });
+	}
+
+	async function deleteArrangementStoreArray(name: string): Promise<void> {
+		name = STORAGE_PREFIX + name;
 		await browser.storage.local.remove(name);
 	}
-
-	// async function saveArrangementStorePrefix(arrangementStore: ArrangementStore): Promise<void> {
-	// 	// TODO: lepsza wersja zoptymalizowana (wszystkie properties w osobnych polach)
-	// 	await saveArrangementStore(currentArrangementStore, "$current");
-	// }
-
-	// async function loadArrangementStorePrefix(name: string): Promise<ArrangementStore> {
-	// 	// TODO: lepsza wersja zoptymalizowana (wszystkie properties w osobnych polach)
-	// 	return loadArrangementStore("$current");
-	// }
 
 	async function start(): Promise<void> {
 		if (!running) {
@@ -156,7 +213,7 @@ var storager = {} as Storager;
 				})()
 			]);
 			running = true;
-			observer = new Observer();
+			observedIdMapper = new ObservedIdMapper();
 		}
 		else
 			console.log("Storager already running!");
@@ -175,7 +232,9 @@ var storager = {} as Storager;
 	storager.saveArrangementStore = saveArrangementStore;
 	storager.loadArrangementStore = loadArrangementStore;
 	storager.copyArrangementStore = copyArrangementStore;
+	storager.copyArrangementStoreArray = copyArrangementStoreArray;
 	storager.deleteArrangementStore = deleteArrangementStore;
+	storager.deleteArrangementStoreArray = deleteArrangementStoreArray;
 	storager.start = start;
 	storager.stop = stop;
 

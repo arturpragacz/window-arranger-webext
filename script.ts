@@ -33,13 +33,17 @@ export interface BackgroundWindow {
 	stopMain: () => void;
 	
 	
-	loadFromMemory: (name: string) => Promise<Arrangement>;
+	loadFromMemory: (name: string, index?: number) => Promise<Arrangement>;
 	
-	saveToMemory: (name: string) => Promise<void>;
+	saveToMemory: (name: string, maxSize?: number) => Promise<void>;
 	
-	copyInMemory: (source: string, destination: string) => Promise<void>;
+	copyInMemory: (source: string, destination: string, index?: number, maxSize?: number) => Promise<void>;
 	
-	deleteFromMemory: (name: string) => Promise<void>;
+	copyArrayInMemory: (source: string, destination: string) => Promise<void>;
+	
+	deleteFromMemory: (name: string, index?: number) => Promise<void>;
+	
+	deleteArrayFromMemory: (name: string) => Promise<void>;
 	
 	memoryDumpGlobal: () => any;
 	
@@ -129,7 +133,7 @@ async function updateCurrent(update: Arrangement | ArrangementStore): Promise<vo
 
 async function saveCurrent(): Promise<void> {
 	// helper function: only used when already running and mutex locked
-	return storager.saveArrangementStore("$current", current);
+	return storager.saveArrangementStore("$current", current, 1);
 }
 
 
@@ -150,13 +154,13 @@ async function startMain(): Promise<void> {
 			current = new ArrangementStore(arrangement);
 
 			await storager.copyArrangementStore("$current", "$previous").catch(() => {});
-			await storager.saveArrangementStore("$current", current);
+			await storager.saveArrangementStore("$current", current, 1);
 
 			browser.windows.onCreated.addListener(windowCreated);
 			browser.windows.onRemoved.addListener(windowRemoved);
 			arranger.onArrangementChanged.addEventListener("arrangementChanged", windowsRearranged);
 
-			backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backupLong"), backupTimeInterval));
+			backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backupLong", 0, 1), backupTimeInterval));
 		}, "startMain");
 
 		running = true;
@@ -192,12 +196,12 @@ function stopMain(): void {
 startMain();
 
 
-async function loadFromMemory(name: string): Promise<Arrangement> {
+async function loadFromMemory(name: string, index?: number): Promise<Arrangement> {
 	if (running) { return mutex.dispatch(async () => {
 		let changed: Arrangement;
-		const order = await storager.loadArrangementStore(name);
+		const order = await storager.loadArrangementStore(name, index);
 		await Promise.all([
-			storager.saveArrangementStore("$auxiliary", current),
+			storager.saveArrangementStore("$auxiliary", current, 1),
 			(async() => {
 				changed = await arranger.setArrangement(order.arrangement);
 			})(),
@@ -209,26 +213,40 @@ async function loadFromMemory(name: string): Promise<Arrangement> {
 		throw "No running Main!";
 }
 
-async function saveToMemory(name: string): Promise<void> {
+async function saveToMemory(name: string, maxSize?: number): Promise<void> {
 	if (running) { await mutex.dispatch<void>(async () => {
-		await storager.saveArrangementStore(name, current);
+		await storager.saveArrangementStore(name, current, maxSize);
 	}, "saveToMemory")}
 	else
 		throw "No running Main!";
 }
 
-async function copyInMemory(source: string, destination: string): Promise<void> {
+async function copyInMemory(source: string, destination: string, index?: number, maxSize?: number): Promise<void> {
 	// nie musi być running, aby się dało (patrz na źródło storager.copyArrangementStore)
 	await mutex.dispatch<void>(async () => {
-		await storager.copyArrangementStore(source, destination);
+		await storager.copyArrangementStore(source, destination, index, maxSize);
 	}, "copyInMemory")
 }
 
-async function deleteFromMemory(name: string): Promise<void> {
+async function copyArrayInMemory(source: string, destination: string): Promise<void> {
+	// nie musi być running, aby się dało (patrz na źródło storager.copyArrangementStore)
+	await mutex.dispatch<void>(async () => {
+		await storager.copyArrangementStoreArray(source, destination);
+	}, "copyArrayInMemory")
+}
+
+async function deleteFromMemory(name: string, index?: number): Promise<void> {
 	// nie musi być running, aby się dało (patrz na źródło storager.deleteArrangementStore)
 	await mutex.dispatch<void>(async () => {
-		await storager.deleteArrangementStore(name);
+		await storager.deleteArrangementStore(name, index);
 	}, "deleteFromMemory");
+}
+
+async function deleteArrayFromMemory(name: string): Promise<void> {
+	// nie musi być running, aby się dało (patrz na źródło storager.deleteArrangementStore)
+	await mutex.dispatch<void>(async () => {
+		await storager.deleteArrangementStoreArray(name);
+	}, "deleteArrayFromMemory");
 }
 
 async function memoryDumpGlobal() {
@@ -236,10 +254,10 @@ async function memoryDumpGlobal() {
 }
 
 async function memoryDumpWindows() {
-	let pairs: [CommonIdType, CustomIdType][] = [];
+	let pairs: [CommonIdType, uidType][] = [];
 	const allWindows = await browser.windows.getAll(preFilterInteresting);
 	const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
-	await allWindowIds.asyncForEach(async id => { pairs.push([id, await browser.sessions.getWindowValue(id, "uid") as string]); });
+	await allWindowIds.asyncForEach(async id => { pairs.push([id, await browser.sessions.getWindowValue(id, "uid") as uidType]); });
 	return pairs;
 }
 

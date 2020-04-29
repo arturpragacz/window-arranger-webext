@@ -1,9 +1,4 @@
-
-type CommonIdType = number;
-type CustomIdType = string;
-type IdType = CommonIdType | CustomIdType;
-
-class ObserveInfo<T extends IdType> {
+class ObserveInfo<T> {
 	public deleteFromObserved: T[] = [];
 	public addToObserved: T[] = [];
 
@@ -31,8 +26,8 @@ class ObserveInfo<T extends IdType> {
 	}
 }
 
-type CustomIdMaker = (commonId: CommonIdType) => Promise<CustomIdType>;
-type CommonIdMaker = (customId: CustomIdType) => CommonIdType;
+type CustomIdMaker<ObserveCommonIdType, ObserveCustomIdType> = (commonId: ObserveCommonIdType) => Promise<ObserveCustomIdType>;
+type CommonIdMaker<ObserveCommonIdType, ObserveCustomIdType> = (customId: ObserveCustomIdType) => ObserveCommonIdType;
 
 interface Array<T> {
 	/**
@@ -84,23 +79,17 @@ if (!Array.prototype.asyncMap) {
 	};
 }
 
-class Observer {
-	private observed = new Map<CommonIdType, CustomIdType>(); // from ids to customIds
-	private observedInverse = new Map<CustomIdType, CommonIdType>(); // from customIds to ids
+class ObservedIdMapper<ObserveCommonIdType, ObserveCustomIdType> {
+	private observed = new Map<ObserveCommonIdType, ObserveCustomIdType>(); // from ids to customIds
+	private observedInverse = new Map<ObserveCustomIdType, ObserveCommonIdType>(); // from customIds to ids
 
-	async changeObserved(observeInfo: ObserveInfo<CommonIdType>,
-	customIdMakerDel: CustomIdMaker = this.asyncGetCustomId, //.bind(this),
-	customIdMakerAdd: CustomIdMaker = this.asyncGetCustomId, //.bind(this),
-	commonIdMaker: CommonIdMaker = this.getCommonId) //.bind(this))
-	: Promise<ObserveInfo<CustomIdType>> {
-
-		customIdMakerDel = customIdMakerDel.bind(this);
-		customIdMakerAdd = customIdMakerAdd.bind(this);
-		commonIdMaker = commonIdMaker.bind(this);
+	async changeObserved(observeInfo: ObserveInfo<ObserveCommonIdType>,
+	customIdMaker: CustomIdMaker<ObserveCommonIdType, ObserveCustomIdType>,
+	) : Promise<ObserveInfo<ObserveCustomIdType>> {
 
 		let newObserveInfo = new ObserveInfo(observeInfo);
-		await newObserveInfo.deleteFromObserved.asyncForEach(async (commonId: CommonIdType, index, array) => {
-			let customId: CustomIdType = await customIdMakerDel(commonId).catch(() => undefined); // TODO: why would you ever use a custom one?
+		await newObserveInfo.deleteFromObserved.asyncForEach(async (commonId: ObserveCommonIdType, index, array) => {
+			let customId: ObserveCustomIdType = this.getCustomId(commonId);
 			if (customId === undefined) {
 				array[index] = undefined;
 			}
@@ -112,8 +101,8 @@ class Observer {
 		});
 		// newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
 
-		await newObserveInfo.addToObserved.asyncForEach(async (commonId: CommonIdType, index, array) => {
-			let customId: CustomIdType = await customIdMakerAdd(commonId).catch(() => undefined);
+		await newObserveInfo.addToObserved.asyncForEach(async (commonId: ObserveCommonIdType, index, array) => {
+			let customId: ObserveCustomIdType = await customIdMaker(commonId).catch(() => undefined);
 			if (customId === undefined) {
 				array[index] = undefined;
 			}
@@ -128,15 +117,11 @@ class Observer {
 		return newObserveInfo as any; // HACK!
 	}
 
-	async asyncGetCustomId(commonId: CommonIdType): Promise<CustomIdType> {
-		return this.getCustomId(commonId);
-	}
-
-	getCustomId(commonId: CommonIdType): CustomIdType {
+	getCustomId(commonId: ObserveCommonIdType): ObserveCustomIdType {
 		return this.observed.get(commonId);
 	}
 
-	getCommonId(customId: CustomIdType): CommonIdType {
+	getCommonId(customId: ObserveCustomIdType): ObserveCommonIdType {
 		return this.observedInverse.get(customId);
 	}
 }
