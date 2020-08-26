@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<title>Window Arranger Options</title>
+		
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta charset="utf-8" />
+		
+		<link rel="stylesheet" type="text/css" href="options.css">
+		
+		<!-- <script defer src="../../modules/internal/icons.js"></script> -->
+		<!-- <script defer src="../../modules/fontawesome/fontawesome.min.js"></script> -->
+	</head>
+	<body>
+		<script src="options.js"></script>
+		
+		<form>
+			<!-- <section class="notice notice-warning hidden" id="notice-timer-too-low">
+				<div class="notice-head">
+					<i class="fai fa-exclamation-triangle icon"></i>
+					<span data-i18n-content="timerTooLowTitle"></span>
+				</div>
+				<div class="notice-body" dir="ltr">
+					<div class="notice-message" data-i18n-content="timerTooLowBody"></div>
+					<button class="button button-notice button-warning" id="button-timer-too-low"
+						data-i18n-content="timerTooLowButton" tabindex="0">
+					</button>
+				</div>
+			</section> -->
+			
+			<!-- <section class="option">
+				<label for="default-window-group-name" class="title-option" data-i18n-content="defaultWindowGroupNameTitle"></label>
+				<input id="default-window-group-name" class="input-text" data-option="defaultWindowGroupName" type="text">
+				<div class="description-option" data-i18n-content="defaultWindowGroupNameDescription"></div>
+			</section> -->
+			
+			<section class="option">
+				<div class="title-option">
+					<label class="label-checkbox">
+						<input class="input-checkbox" data-option="goToConsoleInPopup" type="checkbox">
+						<span class="text-label" data-i18n-content="goToConsoleInPopupTitle"></span>
+					</label>
+					<span class="badge badge-warning" data-i18n-content="advancedLabel"></span>
+				</div>
+				<div class="description-option" data-i18n-content="goToConsoleInPopupDescription"></div>
+			</section>
+
+			<div class="submit">
+				<button type="submit" class="button" id="button-submit" data-i18n-content="optionsFormSubmitButton"></button>
+			</div>
+			
+			<section class="notice notice-default notice-secondary hidden" id="notice-locale">
+				<div class="notice-body" dir="ltr">
+					<div class="notice-message">
+						<!-- <i class="fai fa-exclamation-triangle icon"></i> -->
+						Your preferred language is not yet fully supported.
+					</div>
+					<a class="button button-notice" id="button-help-translate">
+						Help Translate (soon)
+					</a>
+				</div>
+			</section>
+		</form>
+	</body>
+</html>

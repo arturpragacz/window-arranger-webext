@@ -1,14 +1,14 @@
 module.exports = {
-  ignoreFiles: [
-		'install',
+	ignoreFiles: [
+		'inne rzeczy',
 		
-    '*.ts',
+		'**/*.ts',
 		'package*.json',
 		'tsconfig.json',
 		
-    'dependencies.png',
-    'Makefile',
-    'TODO',
-    'web-ext-config.js',
-  ],
+		'dependencies.png',
+		'Makefile',
+		'TODO',
+		'web-ext-config.js',
+	],
 };

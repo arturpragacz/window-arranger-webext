@@ -1,0 +1,31 @@
+{
+  "extensionName": {
+    "message": "Window Arranger",
+    "description": "Name of the extension."
+  },
+
+  "extensionDescription": {
+    "message": "Poprawia rozmieszczanie okien.",
+    "description": "Description of the extension."
+	},
+	
+  "advancedLabel": {
+    "message": "Zaawansowane",
+    "description": "Text in advanced label used in the options page."
+  },
+
+  "goToConsoleInPopupTitle": {
+    "message": "Pokaż \"Go To Console\" w Wyskakującym Oknie",
+    "description": "<Display 'Go To Console' in the Popup Window> option title in the options page."
+  },
+
+  "goToConsoleInPopupDescription": {
+    "message": "Udostępnia opcję w Wyskakującym Oknie, otwierającą nową kartę i wstawiąjącą diagnostyczny URL do schowka.",
+    "description": "<Display 'Go To Console' in the Popup Window> option description in the options page."
+  },
+
+  "optionsFormSubmitButton": {
+    "message": "Zapisz",
+    "description": "Text im the options submit button."
+  }
+}

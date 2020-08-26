@@ -1,9 +1,8 @@
+import type * as BackgroundWindow from "../background/background"
 
-import { BackgroundWindow } from "./script";
+browser.runtime.getBackgroundPage().then((backgroundWindow) => {
 
-browser.runtime.getBackgroundPage().then((background) => {
-
-	var bg = background as any as BackgroundWindow; // TODO: OBRZYDLIWY HACK!
+	var bg = (backgroundWindow as any).bg as typeof BackgroundWindow;
 
 	if (bg.running) {
 		document.getElementById("start-stop").textContent = "Stop";
@@ -11,6 +10,14 @@ browser.runtime.getBackgroundPage().then((background) => {
 	else {
 		document.getElementById("start-stop").textContent = "Start";
 	}
+
+	const goToConsoleSettings = "settings_goToConsoleInPopup";
+	browser.storage.local.get(goToConsoleSettings).then(items => {
+		if (items[goToConsoleSettings] === true) {
+			let goToConsoleElement = document.getElementById("go-to-console");
+			goToConsoleElement.classList.remove("hidden");
+		}
+	});
 
 	document.addEventListener("click", e => {
 
@@ -25,7 +32,7 @@ browser.runtime.getBackgroundPage().then((background) => {
 		if (target.id === "go-to-console") {
 			browser.tabs.create({});
 			navigator.clipboard.writeText(
-				"about:devtools-toolbox?type=extension&id=window_arranger%40extension.pragacz.com");
+				"about:devtools-toolbox?type=extension&id=window_arranger%40webext.pragacz.com");
 			window.close();
 		}
 

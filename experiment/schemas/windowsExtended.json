@@ -5,7 +5,7 @@
       {
         "id": "WindowNative",
         "type": "object",
-        //"description": "",
+        "description": "Native interfaces of the window",
         "properties": {
           "handle": {
             "type": "string",

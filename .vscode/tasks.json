@@ -52,6 +52,18 @@
 			"presentation": {
 				"reveal": "silent"
 			}
+		},
+		{
+			"label": "run-reloading",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"run-reloading"
+			],
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent"
+			}
 		}
 	]
 }
