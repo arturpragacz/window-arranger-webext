@@ -13,17 +13,17 @@ const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 this.windowsExtended = class extends ExtensionAPI {
 	getAPI(context) {
-    let { extension } = context;
+		let { extension } = context;
 		const { windowManager } = extension;
 		
 		return {
 			windowsExt: {
-			  getNative(windowId) {
+				getNative(windowId) {
 					let win = windowManager.get(windowId, context);
 					if (!win) {
-				  	return Promise.reject({
+						return Promise.reject({
 							message: `Invalid window ID: ${windowId}`,
-				  	});
+						});
 					}
 					let baseWindow = win.window.docShell.treeOwner
 						.QueryInterface(Ci.nsIInterfaceRequestor)

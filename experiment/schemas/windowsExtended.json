@@ -2,15 +2,15 @@
 	{
 		"namespace": "windowsExt",
 		"types": [
-      {
-        "id": "WindowNative",
-        "type": "object",
-        "description": "Native interfaces of the window",
-        "properties": {
-          "handle": {
-            "type": "string",
-            "description": "Native handle to the window"
-          }
+			{
+				"id": "WindowNative",
+				"type": "object",
+				"description": "Native interfaces of the window",
+				"properties": {
+					"handle": {
+						"type": "string",
+						"description": "Native handle to the window"
+					}
 				}
 			}
 		],
@@ -23,7 +23,7 @@
 					{
 						"name": "windowId",
 						"type": "integer",
-            "minimum": -2
+						"minimum": -2
 					}
 				]
 			}

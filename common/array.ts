@@ -1,8 +1,8 @@
 interface Array<T> {
 	/**
 	* Performs the specified action for each element in an array in an asynchronous way.
-	* @param callbackfn  A function that accepts up to three arguments. forEach calls the callbackfn function one time for each element in the array.
-	* @param thisArg  An object to which the this keyword can refer in the callbackfn function. If thisArg is omitted, undefined is used as the this value.
+	* @param callbackfn A function that accepts up to three arguments. forEach calls the callbackfn function one time for each element in the array.
+	* @param thisArg An object to which the this keyword can refer in the callbackfn function. If thisArg is omitted, undefined is used as the this value.
 	*/
 	asyncForEach(callbackfn: (value: T, index: number, array: T[]) => Promise<void>, thisArg?: any): Promise<void>;
 	/**
@@ -10,7 +10,7 @@ interface Array<T> {
 	* @param callbackfn A function that accepts up to three arguments. The filter method calls the callbackfn function one time for each element in the array.
 	* @param thisArg An object to which the this keyword can refer in the callbackfn function. If thisArg is omitted, undefined is used as the this value.
 	*/
-	asyncFilter(callbackfn: (value: T, index: number, array: ReadonlyArray<T>) => Promise<unknown>, thisArg?: any): Promise<T[]>;    /**
+	asyncFilter(callbackfn: (value: T, index: number, array: ReadonlyArray<T>) => Promise<unknown>, thisArg?: any): Promise<T[]>;
 	/**
 	* Calls a defined asynchronous callback function on each element of an array, and returns an array that contains the results.
 	* @param callbackfn A function that accepts up to three arguments. The map method calls the callbackfn function one time for each element in the array.

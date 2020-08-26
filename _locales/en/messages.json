@@ -1,31 +1,31 @@
 {
-  "extensionName": {
-    "message": "Window Arranger",
-    "description": "Name of the extension."
-  },
+	"extensionName": {
+		"message": "Window Arranger",
+		"description": "Name of the extension."
+	},
 
-  "extensionDescription": {
-    "message": "Improves arrangement of windows.",
-    "description": "Description of the extension."
+	"extensionDescription": {
+		"message": "Improves arrangement of windows.",
+		"description": "Description of the extension."
 	},
 	
-  "advancedLabel": {
-    "message": "Advanced",
-    "description": "Text in advanced label used in the options page."
-  },
+	"advancedLabel": {
+		"message": "Advanced",
+		"description": "Text in advanced label used in the options page."
+	},
 
-  "goToConsoleInPopupTitle": {
-    "message": "Display \"Go To Console\" in the Popup Window.",
-    "description": "<Display 'Go To Console' in the Popup Window> option title in the options page."
-  },
+	"goToConsoleInPopupTitle": {
+		"message": "Display \"Go To Console\" in the Popup Window.",
+		"description": "<Display 'Go To Console' in the Popup Window> option title in the options page."
+	},
 
-  "goToConsoleInPopupDescription": {
-    "message": "Shows an entry in the Popup that opens a new tab page and copies the debugging url into the clipboard.",
-    "description": "<Display 'Go To Console' in the Popup Window> option description in the options page."
-  },
+	"goToConsoleInPopupDescription": {
+		"message": "Shows an entry in the Popup that opens a new tab page and copies the debugging url into the clipboard.",
+		"description": "<Display 'Go To Console' in the Popup Window> option description in the options page."
+	},
 
-  "optionsFormSubmitButton": {
-    "message": "Save",
-    "description": "Text im the options submit button."
-  }
+	"optionsFormSubmitButton": {
+		"message": "Save",
+		"description": "Text im the options submit button."
+	}
 }

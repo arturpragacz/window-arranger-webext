@@ -20,7 +20,7 @@ export class ArrangementStore {
 
 	async toUid(customIdMaker: CustomIdMaker<CommonIdType, UidType>): Promise<UidArrangementStore> {
 		const date = this.date;
-		const {customIdArrangement: arrangement, idsFailedConversion}  = (await this.arrangement.toCustomId(CustomIdName, customIdMaker));
+		const {customIdArrangement: arrangement, idsFailedConversion} = (await this.arrangement.toCustomId(CustomIdName, customIdMaker));
 		if (idsFailedConversion.size > 0)
 			console.warn(idsFailedConversion);
 
