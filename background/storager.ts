@@ -104,7 +104,7 @@ export async function loadArrangementStore(name: string, index?: number): Promis
 
 	const gettingItem = await browser.storage.local.get(name);
 	if (!gettingItem.hasOwnProperty(name))
-		throw Error("loadArrangementStore: No such Arrangement Store!");
+		throw new Error("loadArrangementStore: No such Arrangement Store!");
 	const uidArrangementStoreJSONArray = gettingItem[name] as string[];
 
 	if (index === undefined)
@@ -112,7 +112,7 @@ export async function loadArrangementStore(name: string, index?: number): Promis
 	
 	const uidArrangementStoreJSON = uidArrangementStoreJSONArray[index];
 	if (uidArrangementStoreJSON === undefined)
-		throw Error("loadArrangementStore: No such Arrangement Store Index!");
+		throw new Error("loadArrangementStore: No such Arrangement Store Index!");
 	const uidArrangementStore = JSON.parse(uidArrangementStoreJSON) as UidArrangementStore;
 	
 	return ArrangementStore.fromUid(uidArrangementStore, observedIdMapper.getCommonId.bind(observedIdMapper));
@@ -124,7 +124,7 @@ export async function copyArrangementStore(source: string, destination: string, 
 
 	let gettingItem = await browser.storage.local.get(source);
 	if (!gettingItem.hasOwnProperty(source))
-		throw Error("copyArrangementStore: No such Arrangement Store!");
+		throw new Error("copyArrangementStore: No such Arrangement Store!");
 	let uidArrangementStoreJSONArray = gettingItem[source] as string[];
 
 	if (index === undefined)
@@ -132,7 +132,7 @@ export async function copyArrangementStore(source: string, destination: string, 
 	
 	const uidArrangementStoreJSON = uidArrangementStoreJSONArray[index];
 	if (uidArrangementStoreJSON === undefined)
-		throw Error("loadArrangementStore: No such Arrangement Store Index!");
+		throw new Error("loadArrangementStore: No such Arrangement Store Index!");
 
 	uidArrangementStoreJSONArray = [];
 	gettingItem = await browser.storage.local.get(destination);
@@ -153,7 +153,7 @@ export async function copyArrangementStoreArray(source: string, destination: str
 
 	const gettingItem = await browser.storage.local.get(source);
 	if (!gettingItem.hasOwnProperty(source))
-		throw Error("copyArrangementStore: No such Arrangement Store!");
+		throw new Error("copyArrangementStore: No such Arrangement Store!");
 	const uidArrangementStoreJSONArray = gettingItem[source] as string[];
 
 	await browser.storage.local.set({ [destination]: uidArrangementStoreJSONArray });
@@ -164,14 +164,14 @@ export async function deleteArrangementStore(name: string, index?: number): Prom
 
 	const gettingItem = await browser.storage.local.get(name);
 	if (!gettingItem.hasOwnProperty(name))
-		throw Error("copyArrangementStore: No such Arrangement Store!");
+		throw new Error("copyArrangementStore: No such Arrangement Store!");
 	let uidArrangementStoreJSONArray = gettingItem[name] as string[];
 
 	if (index === undefined)
 		index = 0;
 
 	if (uidArrangementStoreJSONArray[index] === undefined)
-		throw Error("loadArrangementStore: No such Arrangement Store Index!");
+		throw new Error("loadArrangementStore: No such Arrangement Store Index!");
 	uidArrangementStoreJSONArray.splice(index, 1);
 
 	await browser.storage.local.set({ [name]: uidArrangementStoreJSONArray });
@@ -202,4 +202,8 @@ export function stop(): void {
 	}
 	else
 		console.warn("No running Storager!");
+}
+
+export function isRunning(): boolean {
+	return running;
 }

@@ -1,5 +1,5 @@
 declare namespace browser.windowsExt {
-	type WindowNative = {
+	interface WindowNative {
 		handle: string
 	}
 	function getNative(id: number): Promise<WindowNative>;

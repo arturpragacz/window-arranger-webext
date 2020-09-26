@@ -3,6 +3,7 @@ module.exports = {
 		'inne rzeczy',
 		
 		'**/*.ts',
+		'**/@types',
 		'package*.json',
 		'tsconfig.json',
 		

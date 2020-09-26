@@ -21,7 +21,7 @@ interface Array<T> {
 
 if (!Array.prototype.asyncForEach) {
 	Array.prototype.asyncForEach = async function (callback, thisArg) {
-		for (var i = 0; i < this.length; ++i) {
+		for (let i = 0; i < this.length; ++i) {
 			await callback.call(thisArg, this[i], i, this);
 		}
 	};
@@ -30,7 +30,7 @@ if (!Array.prototype.asyncForEach) {
 if (!Array.prototype.asyncFilter) {
 	Array.prototype.asyncFilter = async function (callback, thisArg) {
 		const filtered = [];
-		for (var i = 0; i < this.length; ++i) {
+		for (let i = 0; i < this.length; ++i) {
 			if (await callback.call(thisArg, this[i], i, this))
 				filtered.push(this[i]);
 		}
@@ -41,7 +41,7 @@ if (!Array.prototype.asyncFilter) {
 if (!Array.prototype.asyncMap) {
 	Array.prototype.asyncMap = async function (callback, thisArg) {
 		const mapped = [];
-		for (var i = 0; i < this.length; ++i) {
+		for (let i = 0; i < this.length; ++i) {
 			mapped.push(await callback.call(thisArg, this[i], i, this));
 		}
 		return mapped;

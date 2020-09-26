@@ -10,6 +10,7 @@ let port: browser.runtime.Port;
 let runningConnection = false;
 let messageIdCounter: number;
 let observedIdMapper: ObservedIdMapper<CommonIdType, HandleType>;
+let rejectAwaitingMessages: Map<number, (reason?: any) => void> = new Map();
 
 class Message {
 	source: string;
@@ -33,18 +34,29 @@ async function sendMessage(type: "changeObserved", value: ObserveInfo<HandleType
 async function sendMessage(type: "getArrangement", value: { handles: string | HandleType[], inObserved: boolean }): Promise<CustomIdArrangement<CustomIdName, HandleType>>;
 async function sendMessage(type: "setArrangement", value: CustomIdArrangement<CustomIdName, HandleType>): Promise<CustomIdArrangement<CustomIdName, HandleType>>;
 async function sendMessage(type: string, value: any): Promise<any> {
+	let messageId = messageIdCounter++;
+	let callback: (arg) => void;
+	let localPort = port;
+	let localRejectAwaitingMessages = rejectAwaitingMessages;
+
 	return new Promise(function (resolve, reject) {
-		let messageId = messageIdCounter++;
-		port.onMessage.addListener(function callback(response: ResponseMessage) {
+		localRejectAwaitingMessages.set(messageId, reject);
+
+		localPort.onMessage.addListener(callback = function (response: ResponseMessage) {
 			if (response.source === "browser" && response.id === messageId && response.type === "response") {
-				port.onMessage.removeListener(callback);
 				console.debug("Response: ", response);
 				if (response.status === "OK" && "value" in response) {
 					resolve(response.value);
 				}
 			}
 		});
-		port.postMessage(new Message("browser", messageId, type, value));
+
+		localPort.postMessage(new Message("browser", messageId, type, value));
+		window.setTimeout(reject, 5000);
+	})
+	.finally(() => {
+		localRejectAwaitingMessages.delete(messageId);
+		localPort.onMessage.removeListener(callback);
 	});
 }
 
@@ -101,7 +113,7 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 			value.handles = newObserveInfo.addToObserved;
 		}
 		else {
-			throw Error("No idArray provided even though inObserved is false!");
+			throw new Error("No idArray provided even though inObserved is false!");
 		}
 	}
 
@@ -130,27 +142,40 @@ export async function setArrangement(arrangement: Arrangement): Promise<Arrangem
 	return responseArrangement;
 }
 
-export let onArrangementChanged: EventTarget = new EventTarget();
+export let onEvent: EventTarget = new EventTarget();
+
 function handleMessageFromApp(message: ResponseMessage) {
-	if (message.status === "OK" && message.type === "arrangementChanged") {
-		const value = Arrangement.fromCustomId(message.value, CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
-		const event = new CustomEvent(message.type, { detail: value });
-		console.debug("From app: ", message);
-		onArrangementChanged.dispatchEvent(event);
+	if (message.source === "app") {
+		if (message.status === "OK" && message.type === "arrangementChanged") {
+			console.debug("From app: ", message);
+			const value = Arrangement.fromCustomId(message.value, CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
+			const event = new CustomEvent(message.type, { detail: value });
+			onEvent.dispatchEvent(event);
+		}
+		else
+			console.warn("Bad status or type of the message from the App!")
 	}
+}
+
+function handleUnexpectedDisconnection(disconnectedPort: browser.runtime.Port) {
+	console.error(`Unexpected disconnection of the App, error: ${disconnectedPort.error}`);
+
+	stopConnection();
+	
+	const event = new CustomEvent("unexpectedDisconnection", { detail: disconnectedPort.error });
+	onEvent.dispatchEvent(event);
 }
 
 export function startConnection(): void {
 	if (!runningConnection) {
 		port = browser.runtime.connectNative(appName);
-		port.onMessage.addListener((message: ResponseMessage) => {
-			if (message.source === "app") {
-				handleMessageFromApp(message);
-			}
-		});
+		port.onDisconnect.addListener(handleUnexpectedDisconnection);
+		port.onMessage.addListener(handleMessageFromApp);
+
 		runningConnection = true;
 		messageIdCounter = 1;
 		observedIdMapper = new ObservedIdMapper();
+		rejectAwaitingMessages = new Map();
 	}
 	else
 		console.warn("Connection already running!");
@@ -158,9 +183,20 @@ export function startConnection(): void {
 
 export function stopConnection(): void {
 	if (runningConnection) {
-		port.disconnect();
 		runningConnection = false;
+
+		for (let reject of rejectAwaitingMessages.values()) {
+			reject();
+		}
+
+		port.onDisconnect.removeListener(handleUnexpectedDisconnection);
+		port.onMessage.removeListener(handleMessageFromApp);
+		port.disconnect();
 	}
 	else
 		console.warn("No running connection!");
+}
+
+export function isRunning(): boolean {
+	return runningConnection;
 }
