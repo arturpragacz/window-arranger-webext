@@ -88,10 +88,11 @@ let mutex: Mutex = new Mutex();
 
 async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 	await delay(windowCreatedTimeout);
+
+	const id = wndw.id;
 	await mutex.dispatch(async () => {
 		assertRunning();
 
-		const id = wndw.id;
 		const changeOi = new ObserveInfo<CommonIdType>().add(id);
 		await Promise.all([
 			storager.changeObserved(changeOi),
@@ -108,7 +109,7 @@ async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 				await updateCurrent(changed);
 			})(),
 		]);
-	}, "windowCreated");
+	}, `windowCreated with id: ${id}`);
 }
 
 async function windowRemoved(wndwId: number): Promise<void> {
@@ -123,7 +124,7 @@ async function windowRemoved(wndwId: number): Promise<void> {
 		current.arrangement.delete(wndwId);
 		current.date = new Date();
 		await saveCurrent();
-	}, "windowRemoved");
+	}, `windowRemoved with id: ${wndwId}`);
 }
 
 async function windowsRearranged(e: CustomEvent): Promise<void> {
@@ -150,6 +151,12 @@ async function saveCurrent(): Promise<void> {
 
 function appUnexpectedlyDisconnected(e: CustomEvent): void {
 	const connectionError: browser.runtime.Port["error"] = e.detail;
+	browser.tabs.query({ currentWindow: true, active: true }).then(tabs =>
+		browser.tabs.executeScript(
+			tabs[0].id,
+			{ code: `alert("App stopped: ${connectionError}");` }
+		)
+	)
 	stopMain();
 }
 

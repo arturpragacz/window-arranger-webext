@@ -4,7 +4,7 @@
 	"description": "__MSG_extensionDescription__",
 	"author": "Artur Pragacz",
 	"homepage_url": "https://github.com/pragacz/window-arranger-webext",
-	"version": "1.2.0",
+	"version": "1.2.0.3",
 
 	"default_locale": "en",
 
@@ -59,6 +59,8 @@
 	"permissions": [
 		"nativeMessaging",
 		"storage",
-		"sessions"
+		"sessions",
+		"tabs",
+		"<all_urls>"
 	]
 }

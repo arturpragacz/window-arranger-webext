@@ -10,7 +10,7 @@ let port: browser.runtime.Port;
 let runningConnection = false;
 let messageIdCounter: number;
 let observedIdMapper: ObservedIdMapper<CommonIdType, HandleType>;
-let rejectAwaitingMessages: Map<number, (reason?: any) => void> = new Map();
+let rejectAwaitingMessages: Map<number, (reason?: any) => void>;
 
 class Message {
 	source: string;
@@ -22,7 +22,6 @@ class Message {
 		this.id = id;
 		this.type = type;
 		this.value = value;
-		console.debug(this);
 	}
 }
 
@@ -38,6 +37,10 @@ async function sendMessage(type: string, value: any): Promise<any> {
 	let callback: (arg) => void;
 	let localPort = port;
 	let localRejectAwaitingMessages = rejectAwaitingMessages;
+	// we create localRejectAwaitingMessages, because rejectAwaitingMessages can change in the background
+	// this isn't strictly necessary, because rejectAwaitingMessages can change only in startConnection()
+	// but that means stopConnection() has to run before that, which will reject all rejectAwaitingMessages
+	// but let's leave this here, because better safe than sorry
 
 	return new Promise(function (resolve, reject) {
 		localRejectAwaitingMessages.set(messageId, reject);
@@ -51,8 +54,16 @@ async function sendMessage(type: string, value: any): Promise<any> {
 			}
 		});
 
-		localPort.postMessage(new Message("browser", messageId, type, value));
-		window.setTimeout(reject, 5000);
+		let message = new Message("browser", messageId, type, value);
+		console.debug("Sending: ", message);
+		try {
+			localPort.postMessage(message);
+		}
+		catch (error) {
+			reject({ "postMessage": error })
+		}
+
+		window.setTimeout(() => reject("timeout"), 5000);
 	})
 	.finally(() => {
 		localRejectAwaitingMessages.delete(messageId);
@@ -66,6 +77,9 @@ export async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Pr
 	
 	newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
 	newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
+
+	if (newObserveInfo.isEmpty())
+		return new Arrangement();
 
 	const {arrangement, idsFailedConversion} = Arrangement.fromCustomId(await sendMessage("changeObserved", newObserveInfo), CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
 	if (idsFailedConversion.size > 0)
@@ -83,27 +97,30 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 	let value: { handles: string | HandleType[], inObserved: boolean };
 	let localObservedIdMapper: ObservedIdMapper<CommonIdType, HandleType>;
 
-	if (inObserved) {
-		localObservedIdMapper = observedIdMapper;
-
-		if (filterHandles) {
-			let handleArray: HandleType[] = [];
-			for (let id of idArray) {
-				let handle: HandleType = localObservedIdMapper.getCustomId(id);
-				
-				if (handle !== undefined)
-					handleArray.push(handle);
-			}
-			value.handles = handleArray;
+	if (!filterHandles) {
+		if (inObserved) {
+			value.handles = "all";
 		}
 		else {
-			value.handles = "all";
+			throw new Error("No idArray provided even though inObserved is false!");
 		}
 	}
 	else {
-		localObservedIdMapper = new ObservedIdMapper<CommonIdType, HandleType>();
+		if (inObserved) {
+			localObservedIdMapper = observedIdMapper;
 
-		if (filterHandles) {
+			let handleArray: HandleType[] = [];
+			for (let id of idArray) {
+				let handle: HandleType = localObservedIdMapper.getCustomId(id);
+				if (handle !== undefined)
+					handleArray.push(handle);
+			}
+
+			value.handles = handleArray;
+		}
+		else {
+			localObservedIdMapper = new ObservedIdMapper<CommonIdType, HandleType>();
+
 			const observeInfo = new ObserveInfo<CommonIdType>().add(idArray);
 
 			let newObserveInfo: ObserveInfo<HandleType> = await localObservedIdMapper.changeObserved(observeInfo,
@@ -112,9 +129,9 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 
 			value.handles = newObserveInfo.addToObserved;
 		}
-		else {
-			throw new Error("No idArray provided even though inObserved is false!");
-		}
+
+		if (!value.handles.length)
+			return new Arrangement();
 	}
 
 	value.inObserved = inObserved;

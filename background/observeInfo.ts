@@ -24,6 +24,10 @@ export class ObserveInfo<T> {
 		this.deleteFromObserved.push(...ids);
 		return this;
 	}
+
+	isEmpty() {
+		return !(this.deleteFromObserved.length || this.addToObserved.length);
+	}
 }
 
 export type CustomIdMaker<ObserveCommonIdType, ObserveCustomIdType> = (commonId: ObserveCommonIdType) => ObserveCustomIdType;

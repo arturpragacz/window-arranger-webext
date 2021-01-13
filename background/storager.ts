@@ -1,5 +1,5 @@
 import { ObserveInfo, CustomIdMaker, CommonIdMaker, ObservedIdMapper } from "./observeInfo.js"
-import { CommonIdType, CustomIdNameType, CustomIdArrangement, Arrangement, mergeArrangements } from "./arrangement.js"
+import { CommonIdType, CustomIdArrangement, Arrangement, mergeArrangements } from "./arrangement.js"
 
 export type UidType = string
 const CustomIdName = "uid";
@@ -66,6 +66,7 @@ async function getWindowUid(id: number): Promise<UidType> {
 	if (uid === undefined) {
 		let save: Promise<void>;
 		({uid, save} = getNextUid());
+		console.debug("Granting uid: ", uid, " to a window with id: ", id);
 		await Promise.all([
 			save,
 			browser.sessions.setWindowValue(id, CustomIdName, uid.toString()),
