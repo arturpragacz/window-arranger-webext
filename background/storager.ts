@@ -18,9 +18,9 @@ export class ArrangementStore {
 		this.date = date;
 	}
 
-	async toUid(customIdMaker: CustomIdMaker<CommonIdType, UidType>): Promise<UidArrangementStore> {
+	toUid(customIdMaker: CustomIdMaker<CommonIdType, UidType>): UidArrangementStore {
 		const date = this.date;
-		const {customIdArrangement: arrangement, idsFailedConversion} = (await this.arrangement.toCustomId(CustomIdName, customIdMaker));
+		const {customIdArrangement: arrangement, idsFailedConversion} = this.arrangement.toCustomId(CustomIdName, customIdMaker);
 		if (idsFailedConversion.size > 0)
 			console.warn(idsFailedConversion);
 
@@ -30,7 +30,6 @@ export class ArrangementStore {
 	}
 
 	static fromUid(uidArrangementStore: UidArrangementStore, commonIdMaker: CommonIdMaker<CommonIdType, UidType>): ArrangementStore {
-
 		const date = new Date(uidArrangementStore.date);
 		const {arrangement, idsFailedConversion} = Arrangement.fromCustomId(uidArrangementStore.arrangement, CustomIdName, commonIdMaker);
 		if (idsFailedConversion.size > 0)
@@ -88,7 +87,7 @@ export async function saveArrangementStore(name: string, arrangementStore: Arran
 		uidArrangementStoreJSONArray = gettingItem[name] as string[];
 
 	const getCustomId: (commonId: CommonIdType) => UidType = observedIdMapper.getCustomId.bind(observedIdMapper);
-	const uidArrangementStore = await arrangementStore.toUid(getCustomId);
+	const uidArrangementStore = arrangementStore.toUid(getCustomId);
 
 	const uidArrangementStoreJSON = JSON.stringify(uidArrangementStore);
 
@@ -110,12 +109,12 @@ export async function loadArrangementStore(name: string, index?: number): Promis
 
 	if (index === undefined)
 		index = 0;
-	
+
 	const uidArrangementStoreJSON = uidArrangementStoreJSONArray[index];
 	if (uidArrangementStoreJSON === undefined)
 		throw new Error("loadArrangementStore: No such Arrangement Store Index!");
 	const uidArrangementStore = JSON.parse(uidArrangementStoreJSON) as UidArrangementStore;
-	
+
 	return ArrangementStore.fromUid(uidArrangementStore, observedIdMapper.getCommonId.bind(observedIdMapper));
 }
 
@@ -130,7 +129,7 @@ export async function copyArrangementStore(source: string, destination: string, 
 
 	if (index === undefined)
 		index = 0;
-	
+
 	const uidArrangementStoreJSON = uidArrangementStoreJSONArray[index];
 	if (uidArrangementStoreJSON === undefined)
 		throw new Error("loadArrangementStore: No such Arrangement Store Index!");

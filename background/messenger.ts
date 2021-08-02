@@ -17,7 +17,7 @@ class Message {
 	id: number;
 	type: string;
 	value: any;
-	constructor(source, id, type, value) {
+	constructor(source: string, id: number, type: string, value: any) {
 		this.source = source;
 		this.id = id;
 		this.type = type;
@@ -74,7 +74,7 @@ async function sendMessage(type: string, value: any): Promise<any> {
 export async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Promise<Arrangement> {
 	let newObserveInfo: ObserveInfo<HandleType> = await observedIdMapper.changeObserved(observeInfo,
 		async id => (await browser.windowsExt.getNative(id)).handle);
-	
+
 	newObserveInfo.deleteFromObserved = newObserveInfo.deleteFromObserved.filter(x => x !== undefined);
 	newObserveInfo.addToObserved = newObserveInfo.addToObserved.filter(x => x !== undefined);
 
@@ -84,7 +84,7 @@ export async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Pr
 	const {arrangement, idsFailedConversion} = Arrangement.fromCustomId(await sendMessage("changeObserved", newObserveInfo), CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
 	if (idsFailedConversion.size > 0)
 		console.warn(idsFailedConversion);
-	
+
 	return arrangement;
 }
 
@@ -93,7 +93,7 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 	if (idArray === undefined) {
 		filterHandles = false;
 	}
-	
+
 	let value: { handles: string | HandleType[], inObserved: boolean };
 	let localObservedIdMapper: ObservedIdMapper<CommonIdType, HandleType>;
 
@@ -145,17 +145,17 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 
 export async function setArrangement(arrangement: Arrangement): Promise<Arrangement> {
 	const getCustomId: (commonId: CommonIdType) => HandleType = observedIdMapper.getCustomId.bind(observedIdMapper);
-	const {customIdArrangement, idsFailedConversion} = (await arrangement.toCustomId(CustomIdName, getCustomId));
+	const {customIdArrangement, idsFailedConversion} = arrangement.toCustomId(CustomIdName, getCustomId);
 	if (idsFailedConversion.size > 0)
 		console.warn(idsFailedConversion);
-	
+
 	const responseCustomIdArrangement: CustomIdArrangement<CustomIdName, HandleType> = await sendMessage("setArrangement", customIdArrangement);
 
 	const getCommonId: (customId: HandleType) => CommonIdType = observedIdMapper.getCommonId.bind(observedIdMapper);
 	const {arrangement: responseArrangement, idsFailedConversion: responseIdsFailedConversion} = Arrangement.fromCustomId(responseCustomIdArrangement, CustomIdName, getCommonId);
 	if (responseIdsFailedConversion.size > 0)
 		console.warn(responseIdsFailedConversion);
-	
+
 	return responseArrangement;
 }
 
@@ -178,7 +178,7 @@ function handleUnexpectedDisconnection(disconnectedPort: browser.runtime.Port) {
 	console.error(`Unexpected disconnection of the App, error: ${disconnectedPort.error}`);
 
 	stopConnection();
-	
+
 	const event = new CustomEvent("unexpectedDisconnection", { detail: disconnectedPort.error });
 	onEvent.dispatchEvent(event);
 }
