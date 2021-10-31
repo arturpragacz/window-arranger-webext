@@ -51,8 +51,8 @@ function changeRunningState(newRunning: RunningState): void {
 	
 	const message: InternalMessage = {
 		type: "runningChange",
-    value: running
-  }
+		value: running
+	}
 	browser.runtime.sendMessage(message).catch(() => {});
 }
 
@@ -87,9 +87,11 @@ let mutex: Mutex = new Mutex();
 
 
 async function windowCreated(wndw: browser.windows.Window): Promise<void> {
-	await delay(windowCreatedTimeout);
+	// await delay(windowCreatedTimeout);
 
 	const id = wndw.id;
+	const moveNewWindowsToTopSetting = "settings_moveNewWindowsToTop";
+
 	await mutex.dispatch(async () => {
 		assertRunning();
 
@@ -99,12 +101,21 @@ async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 			(async() => {
 				const changed1: Arrangement = await messenger.changeObserved(changeOi);
 
-				let moveToTopArrangement = new Arrangement();
-				const topPossition: Possition = changed1.get(id).moveToTop();
-				moveToTopArrangement.set(id, topPossition);
-				const changed2: Arrangement = await messenger.setArrangement(moveToTopArrangement);
+				let changed = changed1;
 
-				const changed = mergeArrangements(changed1, changed2);
+				let moveToTop = false;
+				const gettingItem = await browser.storage.local.get(moveNewWindowsToTopSetting);
+				if (gettingItem.hasOwnProperty(moveNewWindowsToTopSetting))
+					moveToTop = gettingItem[moveNewWindowsToTopSetting] as boolean;
+
+				if (moveToTop) {
+					let moveToTopArrangement = new Arrangement();
+					const topPossition: Possition = changed1.get(id).moveToTop();
+					moveToTopArrangement.set(id, topPossition);
+					const changed2: Arrangement = await messenger.setArrangement(moveToTopArrangement);
+
+					changed = mergeArrangements(changed1, changed2);
+				}
 
 				await updateCurrent(changed);
 			})(),

@@ -11,7 +11,8 @@ const SETTINGS_PREFIX = "settings_";
 
 const SETTING = {
 	"DEFAULT_WINDOW_GROUP_NAME": "defaultWindowGroupName",
-	"GO_TO_CONSOLE_IN_POPUP": "goToConsoleInPopup"
+	"GO_TO_CONSOLE_IN_POPUP": "goToConsoleInPopup",
+	"MOVE_NEW_WINDOWS_TO_TOP": "moveNewWindowsToTop"
 };
 
 
@@ -105,7 +106,8 @@ options.getStorePrefix = function () {
 options._getOptionElements = function () {
 	return {
 		// [Setting.DEFAULT_WINDOW_GROUP_NAME]: options._getOptionElement(Setting.SHOW_ICON_BADGE),
-		[SETTING.GO_TO_CONSOLE_IN_POPUP]: options._getOptionElementFromKey(SETTING.GO_TO_CONSOLE_IN_POPUP)
+		[SETTING.GO_TO_CONSOLE_IN_POPUP]: options._getOptionElementFromKey(SETTING.GO_TO_CONSOLE_IN_POPUP),
+		[SETTING.MOVE_NEW_WINDOWS_TO_TOP]: options._getOptionElementFromKey(SETTING.MOVE_NEW_WINDOWS_TO_TOP)
 	};
 };
 
@@ -160,6 +162,7 @@ options._renderOptionsPanel = function () {
 
 	// elements.defaultWindowGroupName.value = options._optionValues.defaultWindowGroupName;
 	elements.goToConsoleInPopup.checked = options._optionValues.goToConsoleInPopup;
+	elements.moveNewWindowsToTop.checked = options._optionValues.moveNewWindowsToTop;
 
 	// if (options._optionValues.timer < 2000) {
 	// 	options._renderTimerTooLowNotice();
@@ -182,7 +185,7 @@ options._renderOptionsPanel = function () {
 
 options._renderLocaleNotice = function () {
 	let localeNoticeElement = document.getElementById("notice-locale");
-	localeNoticeElement.setAttribute("class", "notice notice-default notice-secondary");
+	localeNoticeElement.classList.remove("hidden");
 };
 
 options._registerEventListeners = function() {
@@ -195,6 +198,7 @@ options._registerOptionsEventListeners = function () {
 
 	// elements.defaultWindowGroupName.addEventListener("keyup", options._onOptionChanged);
 	elements.goToConsoleInPopup.addEventListener("change", options._onOptionChanged);
+	elements.moveNewWindowsToTop.addEventListener("change", options._onOptionChanged);
 
 	let form = options._optionForm;
 	form.addEventListener("submit", options._onFormSubmit);

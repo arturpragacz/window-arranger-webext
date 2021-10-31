@@ -38,6 +38,16 @@
 			<section class="option">
 				<div class="title-option">
 					<label class="label-checkbox">
+						<input class="input-checkbox" data-option="moveNewWindowsToTop" type="checkbox">
+						<span class="text-label" data-i18n-content="moveNewWindowsToTopTitle"></span>
+					</label>
+				</div>
+				<div class="description-option" data-i18n-content="moveNewWindowsToTopDescription"></div>
+			</section>
+			
+			<section class="option">
+				<div class="title-option">
+					<label class="label-checkbox">
 						<input class="input-checkbox" data-option="goToConsoleInPopup" type="checkbox">
 						<span class="text-label" data-i18n-content="goToConsoleInPopupTitle"></span>
 					</label>
@@ -47,18 +57,18 @@
 			</section>
 
 			<div class="submit">
-				<button type="submit" class="button" id="button-submit" data-i18n-content="optionsFormSubmitButton"></button>
+				<button type="submit" id="button-submit" class="button" data-i18n-content="optionsFormSubmitButton"></button>
 			</div>
 			
-			<section class="notice notice-default notice-secondary hidden" id="notice-locale">
+			<section id="notice-locale" class="notice notice-default notice-secondary hidden">
 				<div class="notice-body" dir="ltr">
 					<div class="notice-message">
 						<!-- <i class="fai fa-exclamation-triangle icon"></i> -->
 						Your preferred language is not yet fully supported.
 					</div>
-					<a class="button button-notice" id="button-help-translate">
+					<!-- <a id="button-help-translate" class="button button-notice">
 						Help Translate (soon)
-					</a>
+					</a> -->
 				</div>
 			</section>
 		</form>

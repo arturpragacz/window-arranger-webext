@@ -15,13 +15,23 @@
 	},
 
 	"goToConsoleInPopupTitle": {
-		"message": "Pokaż \"Go To Console\" w Wyskakującym Oknie",
+		"message": "Pokaż \"Go To Console\" w Wyskakującym Oknie.",
 		"description": "<Display 'Go To Console' in the Popup Window> option title in the options page."
 	},
 
 	"goToConsoleInPopupDescription": {
 		"message": "Udostępnia opcję w Wyskakującym Oknie, otwierającą nową kartę i wstawiąjącą diagnostyczny URL do schowka.",
 		"description": "<Display 'Go To Console' in the Popup Window> option description in the options page."
+	},
+
+	"moveNewWindowsToTopTitle": {
+		"message": "Przesuń nowe okna przeglądarki na górę.",
+		"description": "<Move new browser windows to the top> option title in the options page."
+	},
+
+	"moveNewWindowsToTopDescription": {
+		"message": "Przesuwa nowo stworzone okna przeglądarki na górę w porządku okien.",
+		"description": "<Move new browser windows to the top> option description in the options page."
 	},
 
 	"optionsFormSubmitButton": {

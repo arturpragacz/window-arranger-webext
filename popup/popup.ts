@@ -42,9 +42,9 @@ browser.runtime.getBackgroundPage().then((backgroundWindow) => {
 });
 
 (function applySettings() {
-	const goToConsoleSettings = "settings_goToConsoleInPopup";
-	browser.storage.local.get(goToConsoleSettings).then(items => {
-		if (items[goToConsoleSettings] === true) {
+	const goToConsoleSetting = "settings_goToConsoleInPopup";
+	browser.storage.local.get(goToConsoleSetting).then(items => {
+		if (items[goToConsoleSetting] === true) {
 			let goToConsoleElement = document.getElementById("go-to-console");
 			goToConsoleElement.classList.remove("hidden");
 		}

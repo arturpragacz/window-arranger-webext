@@ -24,6 +24,16 @@
 		"description": "<Display 'Go To Console' in the Popup Window> option description in the options page."
 	},
 
+	"moveNewWindowsToTopTitle": {
+		"message": "Move new browser windows to the top.",
+		"description": "<Move new browser windows to the top> option title in the options page."
+	},
+
+	"moveNewWindowsToTopDescription": {
+		"message": "Moves newly created browser windows to the top of the windows order.",
+		"description": "<Move new browser windows to the top> option description in the options page."
+	},
+
 	"optionsFormSubmitButton": {
 		"message": "Save",
 		"description": "Text im the options submit button."
