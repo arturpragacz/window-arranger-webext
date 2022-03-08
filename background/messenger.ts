@@ -1,5 +1,5 @@
 import { ObserveInfo, ObservedIdMapper } from "./observeInfo.js"
-import { CommonIdType, CustomIdArrangement, Arrangement } from "./arrangement.js"
+import { CommonIdType, SerializableArrangement, Arrangement } from "./arrangement.js"
 
 type HandleType = string;
 const CustomIdName = "handle";
@@ -29,9 +29,9 @@ interface ResponseMessage extends Message {
 	status: string;
 }
 
-async function sendMessage(type: "changeObserved", value: ObserveInfo<HandleType>): Promise<CustomIdArrangement<CustomIdName, HandleType>>;
-async function sendMessage(type: "getArrangement", value: { handles: string | HandleType[], inObserved: boolean }): Promise<CustomIdArrangement<CustomIdName, HandleType>>;
-async function sendMessage(type: "setArrangement", value: CustomIdArrangement<CustomIdName, HandleType>): Promise<CustomIdArrangement<CustomIdName, HandleType>>;
+async function sendMessage(type: "changeObserved", value: ObserveInfo<HandleType>): Promise<SerializableArrangement<CustomIdName, HandleType>>;
+async function sendMessage(type: "getArrangement", value: { handles: string | HandleType[], inObserved: boolean }): Promise<SerializableArrangement<CustomIdName, HandleType>>;
+async function sendMessage(type: "setArrangement", value: SerializableArrangement<CustomIdName, HandleType>): Promise<SerializableArrangement<CustomIdName, HandleType>>;
 async function sendMessage(type: string, value: any): Promise<any> {
 	let messageId = messageIdCounter++;
 	let callback: (arg) => void;
@@ -81,7 +81,7 @@ export async function changeObserved(observeInfo: ObserveInfo<CommonIdType>): Pr
 	if (newObserveInfo.isEmpty())
 		return new Arrangement();
 
-	const {arrangement, idsFailedConversion} = Arrangement.fromCustomId(await sendMessage("changeObserved", newObserveInfo), CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
+	const {arrangement, idsFailedConversion} = Arrangement.deserialize(await sendMessage("changeObserved", newObserveInfo), CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
 	if (idsFailedConversion.size > 0)
 		console.warn(idsFailedConversion);
 
@@ -136,7 +136,7 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 
 	value.inObserved = inObserved;
 
-	const {arrangement, idsFailedConversion} = Arrangement.fromCustomId(await sendMessage("getArrangement", value), CustomIdName, localObservedIdMapper.getCommonId.bind(localObservedIdMapper));
+	const {arrangement, idsFailedConversion} = Arrangement.deserialize(await sendMessage("getArrangement", value), CustomIdName, localObservedIdMapper.getCommonId.bind(localObservedIdMapper));
 	if (idsFailedConversion.size > 0)
 		console.warn(idsFailedConversion);
 
@@ -145,14 +145,14 @@ export async function getArrangement(idArray?: CommonIdType[], inObserved: boole
 
 export async function setArrangement(arrangement: Arrangement): Promise<Arrangement> {
 	const getCustomId: (commonId: CommonIdType) => HandleType = observedIdMapper.getCustomId.bind(observedIdMapper);
-	const {customIdArrangement, idsFailedConversion} = arrangement.toCustomId(CustomIdName, getCustomId);
+	const {serializableArrangement, idsFailedConversion} = arrangement.serialize(CustomIdName, getCustomId);
 	if (idsFailedConversion.size > 0)
 		console.warn(idsFailedConversion);
 
-	const responseCustomIdArrangement: CustomIdArrangement<CustomIdName, HandleType> = await sendMessage("setArrangement", customIdArrangement);
+	const responseCustomIdArrangement: SerializableArrangement<CustomIdName, HandleType> = await sendMessage("setArrangement", serializableArrangement);
 
 	const getCommonId: (customId: HandleType) => CommonIdType = observedIdMapper.getCommonId.bind(observedIdMapper);
-	const {arrangement: responseArrangement, idsFailedConversion: responseIdsFailedConversion} = Arrangement.fromCustomId(responseCustomIdArrangement, CustomIdName, getCommonId);
+	const {arrangement: responseArrangement, idsFailedConversion: responseIdsFailedConversion} = Arrangement.deserialize(responseCustomIdArrangement, CustomIdName, getCommonId);
 	if (responseIdsFailedConversion.size > 0)
 		console.warn(responseIdsFailedConversion);
 
@@ -165,7 +165,7 @@ function handleMessageFromApp(message: ResponseMessage) {
 	if (message.source === "app") {
 		if (message.status === "OK" && message.type === "arrangementChanged") {
 			console.debug("From app: ", message);
-			const value = Arrangement.fromCustomId(message.value, CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
+			const value = Arrangement.deserialize(message.value, CustomIdName, observedIdMapper.getCommonId.bind(observedIdMapper));
 			const event = new CustomEvent(message.type, { detail: value });
 			onEvent.dispatchEvent(event);
 		}

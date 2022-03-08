@@ -48,7 +48,7 @@ function assertNotRunning(): void {
 
 function changeRunningState(newRunning: RunningState): void {
 	running = newRunning;
-	
+
 	const message: InternalMessage = {
 		type: "runningChange",
 		value: running
@@ -110,8 +110,8 @@ async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 
 				if (moveToTop) {
 					let moveToTopArrangement = new Arrangement();
-					const topPossition: Possition = changed1.get(id).moveToTop();
-					moveToTopArrangement.set(id, topPossition);
+					const topPossition: Possition = Possition.moveToTop(changed1.windows.get(id));
+					moveToTopArrangement.addWindow(id, topPossition, changed1.groups.get(topPossition.group));
 					const changed2: Arrangement = await messenger.setArrangement(moveToTopArrangement);
 
 					changed = mergeArrangements(changed1, changed2);
@@ -132,7 +132,7 @@ async function windowRemoved(wndwId: number): Promise<void> {
 			storager.changeObserved(changeOi),
 			messenger.changeObserved(changeOi),
 		]);
-		current.arrangement.delete(wndwId);
+		current.arrangement.deleteWindow(wndwId);
 		current.date = new Date();
 		await saveCurrent();
 	}, `windowRemoved with id: ${wndwId}`);
@@ -176,7 +176,7 @@ export async function startMain(): Promise<void> {
 	await mutex.dispatch(async () => {
 		assertNotRunning();
 		changeRunningState(RunningState.STARTING);
-	
+
 		try {
 			const allWindows = await browser.windows.getAll(preFilterInteresting);
 			const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
@@ -217,7 +217,7 @@ export async function stopMain(): Promise<void> {
 		changeRunningState(RunningState.STOPPING);
 
 		doStopMain();
-		
+
 		changeRunningState(RunningState.NOT_RUNNING);
 	}, "stopMain");
 }
@@ -256,6 +256,7 @@ export async function loadFromMemory(name: string, index?: number): Promise<Arra
 
 		let changed: Arrangement;
 		const order = await storager.loadArrangementStore(name, index);
+		order.arrangement.groups.normalize(current.arrangement.groups.getMinIndex());
 		await Promise.all([
 			storager.saveArrangementStore("$auxiliary", current, 1),
 			(async() => {
@@ -270,7 +271,7 @@ export async function loadFromMemory(name: string, index?: number): Promise<Arra
 export async function saveToMemory(name: string, maxSize?: number): Promise<void> {
 	await mutex.dispatch<void>(async () => {
 		assertRunning();
-		
+
 		await storager.saveArrangementStore(name, current, maxSize);
 	}, "saveToMemory");
 }
@@ -311,7 +312,7 @@ export async function memoryDumpWindows(): Promise<any> {
 	let pairs: [CommonIdType, UidType][] = [];
 	const allWindows = await browser.windows.getAll(preFilterInteresting);
 	const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
-	await allWindowIds.asyncForEach(async id => { pairs.push([id, await browser.sessions.getWindowValue(id, "uid") as UidType]); });
+	await allWindowIds.asyncForEach(async id => { pairs.push([id, await browser.sessions.getWindowValue(id, storager.CustomIdName) as UidType]); });
 	return pairs;
 }
 
@@ -326,4 +327,8 @@ export async function clearAllMemory(): Promise<void> {
 
 export function showWindowCounter(): number {
 	return storager.showWindowCounter();
+}
+
+export function showCurrent(): ArrangementStore {
+	return current;
 }

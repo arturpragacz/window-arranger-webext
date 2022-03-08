@@ -22,3 +22,7 @@ If you configured everything correctly, the Webextension should start the Native
 Every couple seconds the Webextension will communicate with the Native Application and save the current order of the browser windows in the browser memory.
 
 When you restart the browser, simply open the Webextension popup (by clicking the icon) and then click on `Restore previous` to restore the order last saved before the browser exit.
+
+## Dependencies
+
+- [Lodash](https://lodash.com/)

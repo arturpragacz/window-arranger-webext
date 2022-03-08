@@ -1,12 +1,12 @@
 import { ObserveInfo, CustomIdMaker, CommonIdMaker, ObservedIdMapper } from "./observeInfo.js"
-import { CommonIdType, CustomIdArrangement, Arrangement, mergeArrangements } from "./arrangement.js"
+import { CommonIdType, SerializableArrangement, Arrangement, mergeArrangements } from "./arrangement.js"
 
 export type UidType = string
-const CustomIdName = "uid";
+export const CustomIdName = "uid";
 type CustomIdName = typeof CustomIdName;
 
 interface UidArrangementStore {
-	arrangement: CustomIdArrangement<CustomIdName, UidType>;
+	arrangement: SerializableArrangement<CustomIdName, UidType>;
 	date: Date | string;
 }
 
@@ -20,7 +20,7 @@ export class ArrangementStore {
 
 	toUid(customIdMaker: CustomIdMaker<CommonIdType, UidType>): UidArrangementStore {
 		const date = this.date;
-		const {customIdArrangement: arrangement, idsFailedConversion} = this.arrangement.toCustomId(CustomIdName, customIdMaker);
+		const {serializableArrangement: arrangement, idsFailedConversion} = this.arrangement.serialize(CustomIdName, customIdMaker);
 		if (idsFailedConversion.size > 0)
 			console.warn(idsFailedConversion);
 
@@ -31,7 +31,7 @@ export class ArrangementStore {
 
 	static fromUid(uidArrangementStore: UidArrangementStore, commonIdMaker: CommonIdMaker<CommonIdType, UidType>): ArrangementStore {
 		const date = new Date(uidArrangementStore.date);
-		const {arrangement, idsFailedConversion} = Arrangement.fromCustomId(uidArrangementStore.arrangement, CustomIdName, commonIdMaker);
+		const {arrangement, idsFailedConversion} = Arrangement.deserialize(uidArrangementStore.arrangement, CustomIdName, commonIdMaker);
 		if (idsFailedConversion.size > 0)
 			console.warn(idsFailedConversion);
 

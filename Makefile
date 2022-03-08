@@ -9,5 +9,5 @@ run:
 run-reloading:
 	web-ext run --firefox=firefoxdeveloperedition --start-url about:debugging#/runtime/this-firefox --pref extensions.experiments.enabled=true
 
-clean :
-	-rmdir /s /q builds
+# clean :
+# 	-rmdir /s /q builds
