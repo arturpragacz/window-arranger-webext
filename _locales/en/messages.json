@@ -8,7 +8,7 @@
 		"message": "Improves arrangement of windows.",
 		"description": "Description of the extension."
 	},
-	
+
 	"advancedLabel": {
 		"message": "Advanced",
 		"description": "Text in advanced label used in the options page."
@@ -34,7 +34,7 @@
 		"description": "<Move new browser windows to the top> option description in the options page."
 	},
 
-	"optionsFormSubmitButton": {
+	"settingsFormSubmitButton": {
 		"message": "Save",
 		"description": "Text im the options submit button."
 	}

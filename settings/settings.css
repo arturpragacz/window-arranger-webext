@@ -13,7 +13,7 @@ body {
 	padding: 10px !important;
 }
 
-.option {
+.setting {
 	display: flex;
 	flex-direction: column;
 	margin-top: 25px;
@@ -52,7 +52,7 @@ body {
 * Titles
 */
 
-.title-option {
+.title-setting {
 	align-items: center;
 	display: flex;
 	font-weight: 600;
@@ -166,7 +166,7 @@ body {
 * Miscellaneous
 */
 
-.description-option {
+.description-setting {
 	color: #757575;
 	font-style: italic;
 	padding-left: 29px;
@@ -220,7 +220,7 @@ body[dir="rtl"] .badge {
 	margin-right: 6px;
 }
 
-body[dir="rtl"] .description-option {
+body[dir="rtl"] .description-setting {
 	margin-left: 0;
 	margin-right: 29px;
 }
@@ -245,7 +245,7 @@ body[dir="rtl"] .input-text {
 			color: #f9f9fa;
 	}
 
-	.description-option {
+	.description-setting {
 			color: #b1b1b3;
 	}
 
