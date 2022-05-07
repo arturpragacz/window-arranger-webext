@@ -15,7 +15,7 @@ function setStartStopText(running: RunningState) {
 browser.runtime.getBackgroundPage().then((backgroundWindow) => {
 	let bg = (backgroundWindow as any).bg as typeof BackgroundWindow;
 
-	setStartStopText(bg.running);
+	setStartStopText(bg.isRunning);
 
 	document.addEventListener("click", e => {
 		e.preventDefault();
@@ -43,6 +43,7 @@ browser.runtime.getBackgroundPage().then((backgroundWindow) => {
 
 (function applySettings() {
 	const goToConsoleSetting = "settings_goToConsoleInPopup";
+	// TODO: replace using SETTING.GO_TO_CONSOLE_IN_POPUP
 	browser.storage.local.get(goToConsoleSetting).then(items => {
 		if (items[goToConsoleSetting] === true) {
 			let goToConsoleElement = document.getElementById("go-to-console");

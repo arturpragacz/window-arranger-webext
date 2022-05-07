@@ -10,9 +10,10 @@ const DEFAULT_LANGUAGE = "en";
 const SETTINGS_PREFIX = "settings_";
 
 const SETTING = {
-	"DEFAULT_WINDOW_GROUP_NAME": "defaultWindowGroupName",
+	// "DEFAULT_WINDOW_GROUP_NAME": "defaultWindowGroupName",
 	"GO_TO_CONSOLE_IN_POPUP": "goToConsoleInPopup",
-	"MOVE_NEW_WINDOWS_TO_TOP": "moveNewWindowsToTop"
+	"MOVE_NEW_WINDOWS_TO_TOP": "moveNewWindowsToTop",
+	"LOAD_PREVIOUS_ON_STARTUP": "loadPreviousOnStartup"
 };
 
 
@@ -107,7 +108,8 @@ settings._getSettingElements = function () {
 	return {
 		// [Setting.DEFAULT_WINDOW_GROUP_NAME]: settings._getSettingElement(Setting.SHOW_ICON_BADGE),
 		[SETTING.GO_TO_CONSOLE_IN_POPUP]: settings._getSettingElementFromKey(SETTING.GO_TO_CONSOLE_IN_POPUP),
-		[SETTING.MOVE_NEW_WINDOWS_TO_TOP]: settings._getSettingElementFromKey(SETTING.MOVE_NEW_WINDOWS_TO_TOP)
+		[SETTING.MOVE_NEW_WINDOWS_TO_TOP]: settings._getSettingElementFromKey(SETTING.MOVE_NEW_WINDOWS_TO_TOP),
+		[SETTING.LOAD_PREVIOUS_ON_STARTUP]: settings._getSettingElementFromKey(SETTING.LOAD_PREVIOUS_ON_STARTUP)
 	};
 };
 
@@ -140,6 +142,18 @@ settings._getSettingForm = function () {
 	return document.querySelector("form");
 };
 
+settings._setDefaultValues = function (newSettingValues) {
+	const settingValues = {
+		"goToConsoleInPopup": false,
+		"moveNewWindowsToTop": false,
+		"loadPreviousOnStartup": true
+	}
+	for (const k in newSettingValues) {
+		settingValues[k] = newSettingValues[k];
+	}
+	return settingValues;
+};
+
 settings._getSettingValues = async function () {
 	let settingKeys = Object.keys(settings._settingElements);
 	let settingStoreKeys = settingKeys.map(key => settings.getStorePrefix() + key);
@@ -147,7 +161,7 @@ settings._getSettingValues = async function () {
 	let settingStoreValuesArray = Object.entries(settingStoreValues);
 	let settingValuesArray = settingStoreValuesArray.map(([key, val]) => [key.slice(settings.getStorePrefix().length), val]);
 	let settingValues = Object.fromEntries(settingValuesArray);
-	return settingValues;
+	return settings._setDefaultValues(settingValues);
 };
 
 settings._renderContents = function () {
@@ -163,6 +177,7 @@ settings._renderSettingsPanel = function () {
 	// elements.defaultWindowGroupName.value = settings._settingValues.defaultWindowGroupName;
 	elements.goToConsoleInPopup.checked = settings._settingValues.goToConsoleInPopup;
 	elements.moveNewWindowsToTop.checked = settings._settingValues.moveNewWindowsToTop;
+	elements.loadPreviousOnStartup.checked = settings._settingValues.loadPreviousOnStartup;
 
 	// if (settings._settingValues.timer < 2000) {
 	// 	settings._renderTimerTooLowNotice();
@@ -199,6 +214,7 @@ settings._registerSettingsEventListeners = function () {
 	// elements.defaultWindowGroupName.addEventListener("keyup", settings._onSettingChanged);
 	elements.goToConsoleInPopup.addEventListener("change", settings._onSettingChanged);
 	elements.moveNewWindowsToTop.addEventListener("change", settings._onSettingChanged);
+	elements.loadPreviousOnStartup.addEventListener("change", settings._onSettingChanged);
 
 	let form = settings._settingForm;
 	form.addEventListener("submit", settings._onFormSubmit);

@@ -34,6 +34,16 @@
 		"description": "<Move new browser windows to the top> option description in the options page."
 	},
 
+	"loadPreviousOnStartupTitle": {
+		"message": "Załaduj poprzedni porządek okien podczas rozruchu.",
+		"description": "<Load previous windows order on startup> option title in the options page."
+	},
+
+	"loadPreviousOnStartupDescription": {
+		"message": "Automatycznie ładuje poprzednio zapisany porządek okien podczas rozruchu przeglądarki (profilu).",
+		"description": "<Load previous windows order on startup> option description in the options page."
+	},
+
 	"settingsFormSubmitButton": {
 		"message": "Zapisz",
 		"description": "Text im the options submit button."

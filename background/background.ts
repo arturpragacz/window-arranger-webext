@@ -7,12 +7,13 @@ import { Mutex } from "../common/mutex.js"
 import { RunningState, InternalMessage } from "../common/const.js"
 
 
-export let running: RunningState = RunningState.NOT_RUNNING;
+export let isRunning: RunningState = RunningState.NOT_RUNNING;
+
 class RunningError extends Error {}
 
 function assertRunning(): void {
 	let err: string;
-	switch (running) {
+	switch (isRunning) {
 		case RunningState.RUNNING:
 			return;
 		case RunningState.NOT_RUNNING:
@@ -30,7 +31,7 @@ function assertRunning(): void {
 
 function assertNotRunning(): void {
 	let err: string;
-	switch (running) {
+	switch (isRunning) {
 		case RunningState.NOT_RUNNING:
 			return;
 		case RunningState.RUNNING:
@@ -47,11 +48,11 @@ function assertNotRunning(): void {
 }
 
 function changeRunningState(newRunning: RunningState): void {
-	running = newRunning;
+	isRunning = newRunning;
 
 	const message: InternalMessage = {
 		type: "runningChange",
-		value: running
+		value: isRunning
 	}
 	browser.runtime.sendMessage(message).catch(() => {});
 }
@@ -68,7 +69,7 @@ function warnOnError(f: () => void): boolean {
 }
 
 
-let windowCreatedTimeout: number = 40000;
+// let windowCreatedTimeout: number = 40000;
 let backupTimeInterval: number = 300000;
 
 let current: ArrangementStore;
@@ -76,8 +77,9 @@ let backupTimerIds: number[] = [];
 
 let delay: (t: number) => Promise<unknown> = t => new Promise(resolve => setTimeout(resolve, t));
 
-let preFilterInteresting: {populate: boolean, windowTypes: browser.windows.WindowType[]} = undefined; // defaults to {populate: false, windowTypes: ["normal", "panel", "popup"]};
-                                                                                                      // TODO?: add devtool windows?
+let preFilterInteresting: {populate: boolean, windowTypes: browser.windows.WindowType[]} = undefined;
+	// defaults to {populate: false, windowTypes: ["normal", "panel", "popup"]};
+	// TODO?: add devtool windows?
 async function isInteresting(wndw: browser.windows.Window): Promise<boolean> {
 	return true;
 }
@@ -91,6 +93,7 @@ async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 
 	const id = wndw.id;
 	const moveNewWindowsToTopSetting = "settings_moveNewWindowsToTop";
+		// TODO: replace using SETTING.MOVE_NEW_WINDOWS_TO_TOP
 
 	await mutex.dispatch(async () => {
 		assertRunning();
@@ -109,8 +112,9 @@ async function windowCreated(wndw: browser.windows.Window): Promise<void> {
 					moveToTop = gettingItem[moveNewWindowsToTopSetting] as boolean;
 
 				if (moveToTop) {
-					let moveToTopArrangement = new Arrangement();
-					const topPossition: Possition = Possition.moveToTop(changed1.windows.get(id));
+					const moveToTopArrangement = new Arrangement();
+					const topPossition = Possition.copy(changed1.windows.get(id));
+					topPossition.moveToTop();
 					moveToTopArrangement.addWindow(id, topPossition, changed1.groups.get(topPossition.group));
 					const changed2: Arrangement = await messenger.setArrangement(moveToTopArrangement);
 
@@ -148,7 +152,7 @@ async function windowsRearranged(e: CustomEvent): Promise<void> {
 }
 
 async function updateCurrent(update: Arrangement | ArrangementStore): Promise<void> {
-	// helper function: only used when already <running> and <mutex> locked
+	// helper function: only used when already <isRunning> and <mutex> locked
 	if (update instanceof Arrangement)
 		update = new ArrangementStore(update);
 	current = mergeArrangementStores(current, update);
@@ -156,7 +160,7 @@ async function updateCurrent(update: Arrangement | ArrangementStore): Promise<vo
 }
 
 async function saveCurrent(): Promise<void> {
-	// helper function: only used when already <running> and <mutex> locked
+	// helper function: only used when already <isRunning> and <mutex> locked
 	return storager.saveArrangementStore("$current", current, 1);
 }
 
@@ -172,41 +176,70 @@ function appUnexpectedlyDisconnected(e: CustomEvent): void {
 }
 
 
+async function extensionEnabled(): Promise<void> {
+	await mutex.dispatch(async () => {
+		browser.runtime.onStartup.addListener(browserStarted);
+		await doStartMain();
+	}, "extensionEnabled");
+}
+
+async function browserStarted(): Promise<void> {
+	const loadPreviousOnStartupSetting = "settings_loadPreviousOnStartup";
+		// TODO: replace using SETTING.LOAD_PREVIOUS_ON_STARTUP
+
+	await mutex.dispatch(async () => {
+		assertRunning();
+
+		let autoLoadPrevious: boolean = true;
+		const gettingItem = await browser.storage.local.get(loadPreviousOnStartupSetting);
+		if (gettingItem.hasOwnProperty(loadPreviousOnStartupSetting))
+			autoLoadPrevious = gettingItem[loadPreviousOnStartupSetting] as boolean;
+
+		if (autoLoadPrevious)
+			await tryDoLoadFromMemory("$previous");
+	}, "browserStarted");
+}
+
 export async function startMain(): Promise<void> {
 	await mutex.dispatch(async () => {
-		assertNotRunning();
-		changeRunningState(RunningState.STARTING);
-
-		try {
-			const allWindows = await browser.windows.getAll(preFilterInteresting);
-			const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
-			const allWindowOi = new ObserveInfo<CommonIdType>().add(allWindowIds);
-
-			messenger.onEvent.addEventListener("unexpectedDisconnection", appUnexpectedlyDisconnected);
-			messenger.onEvent.addEventListener("arrangementChanged", windowsRearranged);
-			browser.windows.onCreated.addListener(windowCreated);
-			browser.windows.onRemoved.addListener(windowRemoved);
-
-			await storager.start();
-			messenger.startConnection();
-
-			await storager.changeObserved(allWindowOi);
-			const arrangement = await messenger.changeObserved(allWindowOi);
-			current = new ArrangementStore(arrangement);
-
-			await storager.copyArrangementStore("$current", "$previous").catch(() => {});
-			await storager.saveArrangementStore("$current", current, 1);
-
-			backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backupLong", 0, 1), backupTimeInterval));
-		}
-		catch (error) {
-			doStopMain();
-			changeRunningState(RunningState.NOT_RUNNING);
-			throw error;
-		}
-
-		changeRunningState(RunningState.RUNNING);
+		await doStartMain();
 	}, "startMain");
+}
+
+async function doStartMain(): Promise<void> {
+	// helper function: only used when already <mutex> locked
+	assertNotRunning();
+	changeRunningState(RunningState.STARTING);
+
+	try {
+		const allWindows = await browser.windows.getAll(preFilterInteresting);
+		const allWindowIds = (await allWindows.asyncFilter(isInteresting)).map(w => w.id);
+		const allWindowOi = new ObserveInfo<CommonIdType>().add(allWindowIds);
+
+		messenger.onEvent.addEventListener("unexpectedDisconnection", appUnexpectedlyDisconnected);
+		messenger.onEvent.addEventListener("arrangementChanged", windowsRearranged);
+		browser.windows.onCreated.addListener(windowCreated);
+		browser.windows.onRemoved.addListener(windowRemoved);
+
+		await storager.start();
+		messenger.startConnection();
+
+		await storager.changeObserved(allWindowOi);
+		const arrangement = await messenger.changeObserved(allWindowOi);
+		current = new ArrangementStore(arrangement);
+
+		await storager.copyArrangementStore("$current", "$previous").catch(() => {});
+		await storager.saveArrangementStore("$current", current, 1);
+
+		backupTimerIds.push(window.setInterval(() => storager.copyArrangementStore("$current", "$backupLong", 0, 1), backupTimeInterval));
+	}
+	catch (error) {
+		doStopMain();
+		changeRunningState(RunningState.NOT_RUNNING);
+		throw error;
+	}
+
+	changeRunningState(RunningState.RUNNING);
 }
 
 export async function stopMain(): Promise<void> {
@@ -223,7 +256,7 @@ export async function stopMain(): Promise<void> {
 }
 
 function doStopMain(): void {
-	// helper function: only used when already <running> and <mutex> locked
+	// helper function: only used when already <isRunning> and <mutex> locked
 	if (storager.isRunning())
 		storager.stop();
 	if (messenger.isRunning())
@@ -241,31 +274,53 @@ function doStopMain(): void {
 }
 
 export async function switchMain(): Promise<void> {
-	if (running == RunningState.NOT_RUNNING)
+	if (isRunning == RunningState.NOT_RUNNING)
 		await startMain();
-	else if (running == RunningState.RUNNING)
+	else if (isRunning == RunningState.RUNNING)
 		await stopMain();
 }
-
-startMain();
 
 
 export async function loadFromMemory(name: string, index?: number): Promise<Arrangement> {
 	return mutex.dispatch(async () => {
 		assertRunning();
 
-		let changed: Arrangement;
-		const order = await storager.loadArrangementStore(name, index);
-		order.arrangement.groups.normalize(current.arrangement.groups.getMinIndex());
-		await Promise.all([
-			storager.saveArrangementStore("$auxiliary", current, 1),
-			(async() => {
-				changed = await messenger.setArrangement(order.arrangement);
-			})(),
-		])
-		await updateCurrent(changed);
-		return changed;
+		return doLoadFromMemory(name, index);
 	}, "loadFromMemory");
+}
+
+async function tryDoLoadFromMemory(name: string, index?: number): Promise<Arrangement> {
+	// helper function: only used when already <isRunning> and <mutex> locked
+	let order: ArrangementStore;
+	try {
+		order = await storager.loadArrangementStore(name, index);
+	}
+	catch (error) {
+		return;
+	}
+
+	return doLoadOrder(order);
+}
+
+async function doLoadFromMemory(name: string, index?: number): Promise<Arrangement> {
+	// helper function: only used when already <isRunning> and <mutex> locked
+	const order = await storager.loadArrangementStore(name, index);
+	return doLoadOrder(order);
+}
+
+async function doLoadOrder(order: ArrangementStore): Promise<Arrangement> {
+	// helper function: only used when already <isRunning> and <mutex> locked
+	order.arrangement.groups.normalize(current.arrangement.groups.getMinIndex());
+
+	let changed: Arrangement;
+	await Promise.all([
+		storager.saveArrangementStore("$auxiliary", current, 1),
+		(async() => {
+			changed = await messenger.setArrangement(order.arrangement);
+		})(),
+	])
+	await updateCurrent(changed);
+	return changed;
 }
 
 export async function saveToMemory(name: string, maxSize?: number): Promise<void> {
@@ -277,28 +332,28 @@ export async function saveToMemory(name: string, maxSize?: number): Promise<void
 }
 
 export async function copyInMemory(source: string, destination: string, index?: number, maxSize?: number): Promise<void> {
-	// does not have to be <running> to be possible (look at the source at storager.copyArrangementStore)
+	// does not have to be <isRunning> to be possible (look at the source at storager.copyArrangementStore)
 	await mutex.dispatch<void>(async () => {
 		await storager.copyArrangementStore(source, destination, index, maxSize);
 	}, "copyInMemory")
 }
 
 export async function copyArrayInMemory(source: string, destination: string): Promise<void> {
-	// does not have to be <running> to be possible (look at the source at storager.copyArrangementStore)
+	// does not have to be <isRunning> to be possible (look at the source at storager.copyArrangementStore)
 	await mutex.dispatch<void>(async () => {
 		await storager.copyArrangementStoreArray(source, destination);
 	}, "copyArrayInMemory")
 }
 
 export async function deleteFromMemory(name: string, index?: number): Promise<void> {
-	// does not have to be <running> to be possible (look at the source at storager.copyArrangementStore)
+	// does not have to be <isRunning> to be possible (look at the source at storager.copyArrangementStore)
 	await mutex.dispatch<void>(async () => {
 		await storager.deleteArrangementStore(name, index);
 	}, "deleteFromMemory");
 }
 
 export async function deleteArrayFromMemory(name: string): Promise<void> {
-	// does not have to be <running> to be possible (look at the source at storager.copyArrangementStore)
+	// does not have to be <isRunning> to be possible (look at the source at storager.copyArrangementStore)
 	await mutex.dispatch<void>(async () => {
 		await storager.deleteArrangementStoreArray(name);
 	}, "deleteArrayFromMemory");
@@ -332,3 +387,6 @@ export function showWindowCounter(): number {
 export function showCurrent(): ArrangementStore {
 	return current;
 }
+
+
+extensionEnabled();

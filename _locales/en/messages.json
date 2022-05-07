@@ -34,6 +34,16 @@
 		"description": "<Move new browser windows to the top> option description in the options page."
 	},
 
+	"loadPreviousOnStartupTitle": {
+		"message": "Load previous windows order on startup.",
+		"description": "<Load previous windows order on startup> option title in the options page."
+	},
+
+	"loadPreviousOnStartupDescription": {
+		"message": "Automatically loads previously saved windows order on the browser (profile) startup.",
+		"description": "<Load previous windows order on startup> option description in the options page."
+	},
+
 	"settingsFormSubmitButton": {
 		"message": "Save",
 		"description": "Text im the options submit button."

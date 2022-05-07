@@ -2,7 +2,7 @@ import { CustomIdMaker, CommonIdMaker } from "./observeInfo.js"
 
 export type CommonIdType = number;
 
-type Index = {};
+type Index = number;
 type Group = {};
 type GroupIndex = number;
 
@@ -18,8 +18,8 @@ export class Possition {
 		return new Possition(position.group, position.index);
 	}
 
-	static moveToTop(position: Possition): Possition {
-		return new Possition(position.group, 0);
+	moveToTop(): void {
+		this.index = 0;
 	}
 }
 
@@ -112,7 +112,7 @@ class ArrangementGroups extends Array<{ group: Group, position: GroupPosition }>
 		return minIndex;
 	}
 
-	static merge(groups1: ArrangementGroups, groups2: ArrangementGroups): ArrangementGroups {
+	static fromMmerge(groups1: ArrangementGroups, groups2: ArrangementGroups): ArrangementGroups {
 		let groups = new ArrangementGroups(...groups2);
 		for (const val1 of groups1) {
 			let found = false;
@@ -233,6 +233,6 @@ export class Arrangement {
 
 export function mergeArrangements(arr1: Arrangement, arr2: Arrangement): Arrangement {
 	let windows: ArrangementWindows = new Map(function*() { yield* arr1.windows; yield* arr2.windows; }())
-	let groups = ArrangementGroups.merge(arr1.groups, arr2.groups);
+	let groups = ArrangementGroups.fromMmerge(arr1.groups, arr2.groups);
 	return new Arrangement(windows, groups);
 }
