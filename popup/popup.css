@@ -1,13 +1,23 @@
 html, body {
 	width: 350px;
-	background: #23242d;
+	background: #f9f9f9;
 }
 
 a {
 	margin: 10px;
 	display: block;
-	color: #d7c6c6;
+	color: #15141a;
 	text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+	html, body {
+		background: #23242d;
+	}
+
+	a {
+		color: #d7c6c6;
+	}
 }
 
 .panel {

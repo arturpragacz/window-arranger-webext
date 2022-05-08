@@ -239,17 +239,16 @@ body[dir="rtl"] .input-text {
 */
 
 @media (prefers-color-scheme: dark) {
-
 	body {
-			background-color: #202023;
-			color: #f9f9fa;
+		background-color: #202023;
+		color: #f9f9fa;
 	}
 
 	.description-setting {
-			color: #b1b1b3;
+		color: #b1b1b3;
 	}
 
 	.input-checkbox:focus + .text-label {
-			outline: 1px dotted #f9f9fa;
+		outline: 1px dotted #f9f9fa;
 	}
 }
