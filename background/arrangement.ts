@@ -41,7 +41,50 @@ export class SerializableArrangement<CustomIdName extends string, CustomIdType> 
 	}
 }
 
-type ArrangementWindows = Map<CommonIdType, Possition>
+class ArrangementWindows extends Map<CommonIdType, Possition> {
+	normalize(toHigh: boolean = false): void {
+		const organized = new Array<{ group: Group, posWindowArr: Array<{ window: CommonIdType, position: Possition }> }>();
+		for (const [window, position] of this) {
+			let posWindowArr = undefined;
+			for (const val of organized) {
+				if (_.isEqual(position.group, val.group)) {
+					posWindowArr = val.posWindowArr;
+					break;
+				}
+			}
+			if (posWindowArr === undefined)
+				organized.push({ group: position.group, posWindowArr: [{ window, position }] });
+			else
+				posWindowArr.push({ window, position });
+		}
+
+		this.clear();
+
+		for (const { posWindowArr } of organized) {
+			if (!toHigh) {
+				posWindowArr.sort(({ position: pos1 }, { position: pos2 }) => pos1.index - pos2.index);
+				let index = 0;
+				for (const val of posWindowArr) {
+					val.position.index = index;
+					index += 1;
+				}
+			}
+			else {
+				posWindowArr.sort(({ position: pos1 }, { position: pos2 }) => pos2.index - pos1.index);
+				let index = -1;
+				for (const val of posWindowArr) {
+					val.position.index = index;
+					index -= 1;
+				}
+			}
+
+			for (const { window, position } of posWindowArr) {
+				this.set(window, position);
+			}
+		}
+	}
+}
+
 class ArrangementGroups extends Array<{ group: Group, position: GroupPosition }> {
 	has(group: Group): boolean {
 		for (const val of this)
@@ -129,11 +172,12 @@ class ArrangementGroups extends Array<{ group: Group, position: GroupPosition }>
 		return groups;
 	}
 }
+
 export class Arrangement {
 	windows: ArrangementWindows;
 	groups: ArrangementGroups;
 
-	constructor(windows: ArrangementWindows = new Map(), groups: ArrangementGroups = new ArrangementGroups(), checkGroups = true) {
+	constructor(windows: ArrangementWindows = new ArrangementWindows(), groups: ArrangementGroups = new ArrangementGroups(), checkGroups = true) {
 		this.windows = windows;
 		if (checkGroups) {
 			let initialGroups = groups;
@@ -205,7 +249,7 @@ export class Arrangement {
 
 	static deserialize<CustomIdName extends string, CustomIdType>(serializableArrangement: SerializableArrangement<CustomIdName, CustomIdType>, customIdName: CustomIdName,
 	commonIdMaker: CommonIdMaker<CommonIdType, CustomIdType>): { arrangement: Arrangement, idsFailedConversion: Map<CustomIdType, Possition> } {
-		let windows: ArrangementWindows = new Map();
+		let windows: ArrangementWindows = new ArrangementWindows();
 		let idsFailedConversion = new Map<CustomIdType, Possition>();
 
 		for (let posWindow of serializableArrangement.windows) {
@@ -232,7 +276,7 @@ export class Arrangement {
 }
 
 export function mergeArrangements(arr1: Arrangement, arr2: Arrangement): Arrangement {
-	let windows: ArrangementWindows = new Map(function*() { yield* arr1.windows; yield* arr2.windows; }())
+	let windows: ArrangementWindows = new ArrangementWindows(function*() { yield* arr1.windows; yield* arr2.windows; }())
 	let groups = ArrangementGroups.fromMmerge(arr1.groups, arr2.groups);
 	return new Arrangement(windows, groups);
 }

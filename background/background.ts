@@ -310,6 +310,15 @@ async function doLoadFromMemory(name: string, index?: number): Promise<Arrangeme
 
 async function doLoadOrder(order: ArrangementStore): Promise<Arrangement> {
 	// helper function: only used when already <isRunning> and <mutex> locked
+	const moveNewWindowsToTopSetting = "settings_moveNewWindowsToTop";
+	// TODO: replace using SETTING.MOVE_NEW_WINDOWS_TO_TOP
+
+	let moveToTop = false;
+	const gettingItem = await browser.storage.local.get(moveNewWindowsToTopSetting);
+	if (gettingItem.hasOwnProperty(moveNewWindowsToTopSetting))
+		moveToTop = gettingItem[moveNewWindowsToTopSetting] as boolean;
+
+	order.arrangement.windows.normalize(moveToTop);
 	order.arrangement.groups.normalize(current.arrangement.groups.getMinIndex());
 
 	let changed: Arrangement;
