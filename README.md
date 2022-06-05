@@ -4,6 +4,8 @@ With the help of programs like [7+ Taskbar Tweaker](https://rammichael.com/7-tas
 
 This Webextension solves the problem, by saving the order of windows inside the browser memory and restoring it after the browser restart.
 
+Watch the video showing how it works:
+
 [![Window Arranger presentation](https://img.youtube.com/vi/Lrxn4mD0iqo/0.jpg)](https://youtu.be/Lrxn4mD0iqo)
 
 ## Installation
@@ -12,7 +14,7 @@ This extension is available on Windows operating system only. It does not suppor
 
 You will need [Firefox Developer Edition](https://www.mozilla.org/en-US/firefox/developer/) or [Firefox Nightly](https://www.mozilla.org/en-US/firefox/nightly/). Other Firefox releases do not allow unsigned extensions to be installed.
 
-1. Download the latest version of the extension and application from the [releases](https://github.com/pragacz/window-arranger-webext/releases/).
+1. Download the latest version of the extension (xpi) and application (zip) from the [releases](https://github.com/pragacz/window-arranger-webext/releases/).
 2. Unpack the zip archive.
 3. Run the `register_native.ps1` Powershell script. If you've never run Powershell scripts before, you may need to [set a correct execution policy](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-7#example-1--set-an-execution-policy), for example by running a Powershell command:
 
@@ -22,7 +24,7 @@ You will need [Firefox Developer Edition](https://www.mozilla.org/en-US/firefox/
 
 ## Usage
 
-If you configured everything correctly, the Webextension should start the Native Application automatically.
+If you configured everything correctly, the Webextension should start the [Native Application](https://github.com/pragacz/window-arranger-native) automatically.
 
 Every couple seconds the Webextension will communicate with the Native Application and save the current order of the browser windows in the browser memory.
 
