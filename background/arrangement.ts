@@ -205,15 +205,21 @@ export class Arrangement {
 			throw new Error("addWindow: No group position info when adding window with a new group!");
 	}
 
-	deleteWindow(id: CommonIdType): void {
-		let group = this.windows.get(id).group;
+	deleteWindow(id: CommonIdType): boolean {
+		let window = this.windows.get(id);
+		if (window === undefined)
+			return false;
+
 		this.windows.delete(id);
 
+		let group = window.group;
 		for (const pos of this.windows.values()) {
 			if (pos.group == group)
-				return;
+				return true;
 		}
 		this.groups.delete(group);
+
+		return true;
 	}
 
 	serialize<CustomIdName extends string, CustomIdType>(customIdName: CustomIdName, customIdMaker: CustomIdMaker<CommonIdType, CustomIdType>)

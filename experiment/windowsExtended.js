@@ -9,13 +9,13 @@
 
 //ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
-const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+// const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 this.windowsExtended = class extends ExtensionAPI {
 	getAPI(context) {
 		let { extension } = context;
 		const { windowManager } = extension;
-		
+
 		return {
 			windowsExt: {
 				getNative(windowId) {
@@ -28,8 +28,8 @@ this.windowsExtended = class extends ExtensionAPI {
 					let baseWindow = win.window.docShell.treeOwner
 						.QueryInterface(Ci.nsIInterfaceRequestor)
 						.getInterface(Ci.nsIBaseWindow);
-					
-					return {handle: baseWindow.nativeHandle };
+
+					return { handle: baseWindow.nativeHandle };
 				}
 			}
 		}
