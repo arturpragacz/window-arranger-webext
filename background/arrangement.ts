@@ -40,6 +40,9 @@ export class SerializableArrangement<CustomIdName extends string, CustomIdType> 
 		this.groups = groups;
 	}
 }
+export function serializableArrangementIsEmpty<CustomIdName extends string, CustomIdType>(serArr: SerializableArrangement<CustomIdName, CustomIdType>): boolean {
+	return serArr.windows.length == 0 && serArr.groups.length == 0;
+}
 
 class ArrangementWindows extends Map<CommonIdType, Possition> {
 	normalize(toHigh: boolean = false): void {
@@ -220,6 +223,10 @@ export class Arrangement {
 		this.groups.delete(group);
 
 		return true;
+	}
+
+	isEmpty(): boolean {
+		return this.windows.size == 0 && this.groups.length == 0;
 	}
 
 	serialize<CustomIdName extends string, CustomIdType>(customIdName: CustomIdName, customIdMaker: CustomIdMaker<CommonIdType, CustomIdType>)

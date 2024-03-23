@@ -1,5 +1,5 @@
 import { ObserveInfo, ObservedIdMapper } from "./observeInfo.js"
-import { CommonIdType, SerializableArrangement, Arrangement } from "./arrangement.js"
+import { CommonIdType, SerializableArrangement, serializableArrangementIsEmpty, Arrangement } from "./arrangement.js"
 
 type HandleType = string;
 const CustomIdName = "handle";
@@ -29,9 +29,14 @@ interface ResponseMessage extends Message {
 	status: string;
 }
 
+class SetArrangementResult {
+	arrangement: SerializableArrangement<CustomIdName, HandleType>;
+	notSet: SerializableArrangement<CustomIdName, HandleType>;
+}
+
 async function sendMessage(type: "changeObserved", value: ObserveInfo<HandleType>): Promise<SerializableArrangement<CustomIdName, HandleType>>;
 async function sendMessage(type: "getArrangement", value: { handles: string | HandleType[], inObserved: boolean }): Promise<SerializableArrangement<CustomIdName, HandleType>>;
-async function sendMessage(type: "setArrangement", value: SerializableArrangement<CustomIdName, HandleType>): Promise<SerializableArrangement<CustomIdName, HandleType>>;
+async function sendMessage(type: "setArrangement", value: SerializableArrangement<CustomIdName, HandleType>): Promise<SetArrangementResult>;
 async function sendMessage(type: string, value: any): Promise<any> {
 	let messageId = messageIdCounter++;
 	let callback: (arg) => void;
@@ -149,9 +154,21 @@ export async function setArrangement(arrangement: Arrangement): Promise<Arrangem
 	if (idsFailedConversion.size > 0)
 		console.warn(idsFailedConversion);
 
-	const responseCustomIdArrangement: SerializableArrangement<CustomIdName, HandleType> = await sendMessage("setArrangement", serializableArrangement);
+	const response: SetArrangementResult = await sendMessage("setArrangement", serializableArrangement);
 
 	const getCommonId: (customId: HandleType) => CommonIdType = observedIdMapper.getCommonId.bind(observedIdMapper);
+
+	const customIdNotSetArrangement = response.notSet;
+	if (!serializableArrangementIsEmpty(customIdNotSetArrangement)) {
+		const {arrangement: notSetArrangement, idsFailedConversion: notSetIdsFailedConversion} = Arrangement.deserialize(customIdNotSetArrangement, CustomIdName, getCommonId);
+		if (notSetIdsFailedConversion.size > 0)
+			console.error(notSetIdsFailedConversion);
+		if (!notSetArrangement.isEmpty()) {
+			console.error(notSetArrangement);
+		}
+	}
+
+	const responseCustomIdArrangement = response.arrangement;
 	const {arrangement: responseArrangement, idsFailedConversion: responseIdsFailedConversion} = Arrangement.deserialize(responseCustomIdArrangement, CustomIdName, getCommonId);
 	if (responseIdsFailedConversion.size > 0)
 		console.warn(responseIdsFailedConversion);
